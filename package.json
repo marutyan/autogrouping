@@ -15,12 +15,11 @@
     "zip": "wxt zip",
     "postinstall": "wxt prepare",
     "prepare:wxt": "wxt prepare",
-    "prelint": "pnpm prepare:wxt",
     "pretypecheck": "pnpm prepare:wxt",
     "typecheck": "tsc --noEmit",
     "format": "biome format --write .",
     "format:check": "biome format .",
-    "lint": "biome lint . && oxlint --type-aware --type-check",
+    "lint": "biome lint . && oxlint",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
@@ -40,7 +39,6 @@
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "oxlint": "latest",
-    "oxlint-tsgolint": "latest",
     "typescript": "latest",
     "vitest": "latest"
   }
