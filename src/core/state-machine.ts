@@ -41,7 +41,7 @@ export function reduceTabState(current: TabStateRecord, event: TabEvent): TabSta
       return { tabId: current.tabId, state: "ignored-pinned", updatedAt: event.at };
     case "manual-reset":
       return { tabId: current.tabId, state: "pending", updatedAt: event.at };
-    case "split-entered":
+    case "split-entered": {
       const resumeState =
         current.state === "protected-split-view" ? current.resumeState : current.state;
       return {
@@ -51,6 +51,7 @@ export function reduceTabState(current: TabStateRecord, event: TabEvent): TabSta
         ...(current.managedRuleId === undefined ? {} : { managedRuleId: current.managedRuleId }),
         updatedAt: event.at,
       };
+    }
     case "split-left": {
       const resumeState: Exclude<TabManagementState, "protected-split-view"> =
         current.resumeState ?? "pending";
