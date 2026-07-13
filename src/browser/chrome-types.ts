@@ -7,7 +7,11 @@ export function isSplitViewTab(tab: chrome.tabs.Tab): boolean {
   return typeof splitViewId === "number" && splitViewId !== -1;
 }
 
-export function changedSplitViewId(changeInfo: chrome.tabs.TabChangeInfo): number | undefined {
-  const value = (changeInfo as chrome.tabs.TabChangeInfo & { splitViewId?: number }).splitViewId;
+export function changedSplitViewId(changeInfo: unknown): number | undefined {
+  if (typeof changeInfo !== "object" || changeInfo === null || !("splitViewId" in changeInfo)) {
+    return undefined;
+  }
+
+  const value = (changeInfo as { splitViewId?: unknown }).splitViewId;
   return typeof value === "number" ? value : undefined;
 }
