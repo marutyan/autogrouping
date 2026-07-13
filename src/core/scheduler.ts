@@ -39,13 +39,14 @@ export class KeyedMutex<Key> {
     const current = new Promise<void>((resolve) => {
       release = resolve;
     });
-    this.#tails.set(key, previous.then(() => current));
+    const tail = previous.then(() => current);
+    this.#tails.set(key, tail);
     await previous;
     try {
       return await task();
     } finally {
       release();
-      if (this.#tails.get(key) === current) this.#tails.delete(key);
+      if (this.#tails.get(key) === tail) this.#tails.delete(key);
     }
   }
 }

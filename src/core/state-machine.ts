@@ -33,11 +33,12 @@ export function reduceTabState(current: TabStateRecord, event: TabEvent): TabSta
     case "manual-reset":
       return { tabId: current.tabId, state: "pending", updatedAt: event.at };
     case "split-entered":
+      const resumeState = current.state === "protected-split-view" ? current.resumeState : current.state;
       return {
         tabId: current.tabId,
         state: "protected-split-view",
-        resumeState: current.state === "protected-split-view" ? current.resumeState : current.state,
-        managedRuleId: current.managedRuleId,
+        ...(resumeState === undefined ? {} : { resumeState }),
+        ...(current.managedRuleId === undefined ? {} : { managedRuleId: current.managedRuleId }),
         updatedAt: event.at,
       };
     case "split-left": {
@@ -45,7 +46,7 @@ export function reduceTabState(current: TabStateRecord, event: TabEvent): TabSta
       return {
         tabId: current.tabId,
         state: resumeState,
-        managedRuleId: current.managedRuleId,
+        ...(current.managedRuleId === undefined ? {} : { managedRuleId: current.managedRuleId }),
         updatedAt: event.at,
       };
     }
