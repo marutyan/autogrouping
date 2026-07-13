@@ -48,7 +48,9 @@ export function previewImport(text: string): ImportPreview {
       source: "legacy",
       settings: { ...DEFAULT_SETTINGS, rules },
       errors,
-      warnings: ["Legacy rules were converted. Review names, patterns, colors, and priority before saving."],
+      warnings: [
+        "Legacy rules were converted. Review names, patterns, colors, and priority before saving.",
+      ],
     };
   }
 
@@ -66,7 +68,8 @@ function extractLegacyRules(parsed: unknown): unknown[] {
   if (typeof parsed !== "object" || parsed === null) return [];
   const record = parsed as Record<string, unknown>;
   if (Array.isArray(record.groupRules)) return record.groupRules;
-  if (record.groupRules && typeof record.groupRules === "object") return Object.values(record.groupRules);
+  if (record.groupRules && typeof record.groupRules === "object")
+    return Object.values(record.groupRules);
   return [];
 }
 

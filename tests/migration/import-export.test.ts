@@ -3,17 +3,19 @@ import { previewImport } from "../../src/migration/import-export";
 
 describe("previewImport", () => {
   it("converts legacy groupRules", () => {
-    const preview = previewImport(JSON.stringify({
-      groupRules: [
-        {
-          id: 4,
-          name: "GitHub",
-          color: "purple",
-          pattern: "github.com/*\ngist.github.com/*",
-          key: 2,
-        },
-      ],
-    }));
+    const preview = previewImport(
+      JSON.stringify({
+        groupRules: [
+          {
+            id: 4,
+            name: "GitHub",
+            color: "purple",
+            pattern: "github.com/*\ngist.github.com/*",
+            key: 2,
+          },
+        ],
+      }),
+    );
 
     expect(preview.source).toBe("legacy");
     expect(preview.errors).toEqual([]);

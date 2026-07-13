@@ -46,9 +46,7 @@ export function OptionsApp() {
   }
 
   function updateRule(id: string, patch: Partial<GroupingRule>) {
-    setRules((current) =>
-      current.map((rule) => (rule.id === id ? { ...rule, ...patch } : rule)),
-    );
+    setRules((current) => current.map((rule) => (rule.id === id ? { ...rule, ...patch } : rule)));
   }
 
   function moveRule(index: number, direction: -1 | 1) {
@@ -236,9 +234,7 @@ export function OptionsApp() {
             </label>
             <button
               className="danger"
-              onClick={() =>
-                setRules((current) => current.filter((item) => item.id !== rule.id))
-              }
+              onClick={() => setRules((current) => current.filter((item) => item.id !== rule.id))}
             >
               Delete
             </button>

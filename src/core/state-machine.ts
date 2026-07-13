@@ -15,7 +15,11 @@ export function initialTabState(tabId: number, at = Date.now()): TabStateRecord 
 }
 
 export function reduceTabState(current: TabStateRecord, event: TabEvent): TabStateRecord {
-  if (current.state === "protected-external" && event.type !== "manual-reset" && event.type !== "split-entered") {
+  if (
+    current.state === "protected-external" &&
+    event.type !== "manual-reset" &&
+    event.type !== "split-entered"
+  ) {
     return { ...current, updatedAt: event.at };
   }
 
@@ -23,7 +27,12 @@ export function reduceTabState(current: TabStateRecord, event: TabEvent): TabSta
     case "created":
       return { tabId: current.tabId, state: "pending", updatedAt: event.at };
     case "rule-matched":
-      return { tabId: current.tabId, state: "managed", managedRuleId: event.ruleId, updatedAt: event.at };
+      return {
+        tabId: current.tabId,
+        state: "managed",
+        managedRuleId: event.ruleId,
+        updatedAt: event.at,
+      };
     case "rule-unmatched":
       return { tabId: current.tabId, state: "unmatched", updatedAt: event.at };
     case "external-group":
@@ -33,7 +42,8 @@ export function reduceTabState(current: TabStateRecord, event: TabEvent): TabSta
     case "manual-reset":
       return { tabId: current.tabId, state: "pending", updatedAt: event.at };
     case "split-entered":
-      const resumeState = current.state === "protected-split-view" ? current.resumeState : current.state;
+      const resumeState =
+        current.state === "protected-split-view" ? current.resumeState : current.state;
       return {
         tabId: current.tabId,
         state: "protected-split-view",
@@ -42,7 +52,8 @@ export function reduceTabState(current: TabStateRecord, event: TabEvent): TabSta
         updatedAt: event.at,
       };
     case "split-left": {
-      const resumeState: Exclude<TabManagementState, "protected-split-view"> = current.resumeState ?? "pending";
+      const resumeState: Exclude<TabManagementState, "protected-split-view"> =
+        current.resumeState ?? "pending";
       return {
         tabId: current.tabId,
         state: resumeState,

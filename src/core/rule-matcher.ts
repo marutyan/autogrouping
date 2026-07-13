@@ -18,7 +18,10 @@ export function matchesPattern(url: string, pattern: string): boolean {
   return wildcardToRegExp(normalizedPattern).test(url);
 }
 
-export function findMatchingRule(url: string, rules: readonly GroupingRule[]): GroupingRule | undefined {
+export function findMatchingRule(
+  url: string,
+  rules: readonly GroupingRule[],
+): GroupingRule | undefined {
   const matches = rules
     .filter((rule) => rule.enabled)
     .flatMap((rule) =>

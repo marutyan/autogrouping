@@ -49,14 +49,18 @@ export class ExtensionStorage {
 
   async getKnownOwnedRuleIds(): Promise<Set<string>> {
     const data = await chrome.storage.local.get(KNOWN_OWNED_RULE_IDS_KEY);
-    const values = Array.isArray(data[KNOWN_OWNED_RULE_IDS_KEY]) ? data[KNOWN_OWNED_RULE_IDS_KEY] : [];
+    const values = Array.isArray(data[KNOWN_OWNED_RULE_IDS_KEY])
+      ? data[KNOWN_OWNED_RULE_IDS_KEY]
+      : [];
     return new Set(values.filter((value): value is string => typeof value === "string"));
   }
 
   async addKnownOwnedRuleId(ruleId: string): Promise<void> {
     await this.#enqueueWrite(async () => {
       const data = await chrome.storage.local.get(KNOWN_OWNED_RULE_IDS_KEY);
-      const values = Array.isArray(data[KNOWN_OWNED_RULE_IDS_KEY]) ? data[KNOWN_OWNED_RULE_IDS_KEY] : [];
+      const values = Array.isArray(data[KNOWN_OWNED_RULE_IDS_KEY])
+        ? data[KNOWN_OWNED_RULE_IDS_KEY]
+        : [];
       const known = new Set(values.filter((value): value is string => typeof value === "string"));
       known.add(ruleId);
       await chrome.storage.local.set({ [KNOWN_OWNED_RULE_IDS_KEY]: [...known].sort() });

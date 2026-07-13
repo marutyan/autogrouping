@@ -19,7 +19,10 @@ export function PopupApp() {
       const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
       setTab(activeTab);
       if (activeTab?.id !== undefined) {
-        const response = (await chrome.runtime.sendMessage({ type: "get-status", tabId: activeTab.id })) as StatusResponse;
+        const response = (await chrome.runtime.sendMessage({
+          type: "get-status",
+          tabId: activeTab.id,
+        })) as StatusResponse;
         setState(response.state);
       }
     })();
@@ -36,7 +39,10 @@ export function PopupApp() {
     if (!tab) return;
     await chrome.runtime.sendMessage({ type, tabId: tab.id, windowId: tab.windowId });
     if (tab.id !== undefined) {
-      const response = (await chrome.runtime.sendMessage({ type: "get-status", tabId: tab.id })) as StatusResponse;
+      const response = (await chrome.runtime.sendMessage({
+        type: "get-status",
+        tabId: tab.id,
+      })) as StatusResponse;
       setState(response.state);
     }
   }
@@ -48,7 +54,10 @@ export function PopupApp() {
           <h1>AutoGrouping</h1>
           <p>Rule-based tab groups without taking control from you or browser agents.</p>
         </div>
-        <button className={enabled ? "toggle active" : "toggle"} onClick={() => void toggleEnabled()}>
+        <button
+          className={enabled ? "toggle active" : "toggle"}
+          onClick={() => void toggleEnabled()}
+        >
           {enabled ? "On" : "Off"}
         </button>
       </header>
@@ -70,11 +79,17 @@ export function PopupApp() {
 
 function formatState(state: TabStateRecord["state"] | undefined): string {
   switch (state) {
-    case "managed": return "Managed by AutoGrouping";
-    case "protected-external": return "Protected from automation";
-    case "protected-split-view": return "Protected by Split View";
-    case "ignored-pinned": return "Pinned and ignored";
-    case "unmatched": return "No matching rule";
-    default: return "Waiting";
+    case "managed":
+      return "Managed by AutoGrouping";
+    case "protected-external":
+      return "Protected from automation";
+    case "protected-split-view":
+      return "Protected by Split View";
+    case "ignored-pinned":
+      return "Pinned and ignored";
+    case "unmatched":
+      return "No matching rule";
+    default:
+      return "Waiting";
   }
 }

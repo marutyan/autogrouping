@@ -27,7 +27,8 @@ export function validateRule(value: unknown, index = 0): ValidationResult<Groupi
   const errors: string[] = [];
   if (!isRecord(value)) return { ok: false, errors: [`rules[${index}] must be an object`] };
 
-  const id = typeof value.id === "string" && value.id.trim() ? value.id.trim() : crypto.randomUUID();
+  const id =
+    typeof value.id === "string" && value.id.trim() ? value.id.trim() : crypto.randomUUID();
   const name = typeof value.name === "string" ? value.name.trim() : "";
   if (!name) errors.push(`rules[${index}].name is required`);
 
@@ -37,11 +38,18 @@ export function validateRule(value: unknown, index = 0): ValidationResult<Groupi
   }
 
   const patterns = Array.isArray(value.patterns)
-    ? value.patterns.filter((pattern): pattern is string => typeof pattern === "string").map((pattern) => pattern.trim()).filter(Boolean)
+    ? value.patterns
+        .filter((pattern): pattern is string => typeof pattern === "string")
+        .map((pattern) => pattern.trim())
+        .filter(Boolean)
     : typeof value.pattern === "string"
-      ? value.pattern.split(/[\n ]+/).map((pattern) => pattern.trim()).filter(Boolean)
+      ? value.pattern
+          .split(/[\n ]+/)
+          .map((pattern) => pattern.trim())
+          .filter(Boolean)
       : [];
-  if (patterns.length === 0) errors.push(`rules[${index}].patterns must contain at least one pattern`);
+  if (patterns.length === 0)
+    errors.push(`rules[${index}].patterns must contain at least one pattern`);
 
   const priority = Number.isInteger(value.priority)
     ? (value.priority as number)

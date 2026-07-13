@@ -5,6 +5,6 @@ export default defineConfig({
   timeout: 60_000,
   retries: process.env.CI ? 2 : 0,
   use: {
-    trace: "retain-on-failure"
-  }
+    trace: "retain-on-failure",
+  },
 });

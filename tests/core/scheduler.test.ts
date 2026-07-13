@@ -6,8 +6,12 @@ describe("KeyedScheduler", () => {
     vi.useFakeTimers();
     const scheduler = new KeyedScheduler<number>();
     const calls: string[] = [];
-    scheduler.schedule(1, 100, async () => { calls.push("first"); });
-    scheduler.schedule(1, 100, async () => { calls.push("second"); });
+    scheduler.schedule(1, 100, async () => {
+      calls.push("first");
+    });
+    scheduler.schedule(1, 100, async () => {
+      calls.push("second");
+    });
     await vi.advanceTimersByTimeAsync(100);
     expect(calls).toEqual(["second"]);
     vi.useRealTimers();
@@ -19,7 +23,9 @@ describe("KeyedMutex", () => {
     const mutex = new KeyedMutex<string>();
     const calls: string[] = [];
     let releaseFirst!: () => void;
-    const gate = new Promise<void>((resolve) => { releaseFirst = resolve; });
+    const gate = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
 
     const first = mutex.run("window", async () => {
       calls.push("first:start");

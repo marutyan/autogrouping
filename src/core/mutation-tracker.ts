@@ -5,7 +5,12 @@ export class MutationTracker {
 
   constructor(private readonly now: () => number = Date.now) {}
 
-  begin(tabId: number, kind: MutationKind, ttlMs = 3000, expectedGroupId?: number): PendingMutation {
+  begin(
+    tabId: number,
+    kind: MutationKind,
+    ttlMs = 3000,
+    expectedGroupId?: number,
+  ): PendingMutation {
     this.prune();
     const mutation: PendingMutation = {
       tabId,
@@ -20,7 +25,11 @@ export class MutationTracker {
     return mutation;
   }
 
-  consume(tabId: number, kind: MutationKind, observedGroupId?: number): PendingMutation | undefined {
+  consume(
+    tabId: number,
+    kind: MutationKind,
+    observedGroupId?: number,
+  ): PendingMutation | undefined {
     this.prune();
     const list = this.#pending.get(tabId);
     if (!list) return undefined;
