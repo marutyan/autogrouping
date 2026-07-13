@@ -5,6 +5,7 @@ import { KeyedMutex, KeyedScheduler } from "../core/scheduler";
 import {
   TAB_GROUP_ID_NONE,
   type ExtensionSettings,
+  type GroupColor,
   type OwnedGroup,
   type TabStateRecord,
 } from "../core/types";
@@ -258,7 +259,7 @@ export class AutoGroupingController {
     tabId: number,
     ruleId: string,
     title: string,
-    color: chrome.tabGroups.ColorEnum,
+    color: GroupColor,
   ): Promise<{ group: OwnedGroup; createdWithTab: boolean }> {
     const existing = [...this.#ownedGroups.values()].find(
       (group) => group.windowId === windowId && group.ruleId === ruleId,
