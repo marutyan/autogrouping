@@ -122,8 +122,12 @@ export function OptionsApp() {
           <p>Rules run from top to bottom. Existing external groups always take priority.</p>
         </div>
         <div className="toolbar">
-          <button type="button" onClick={addRule}>Add rule</button>
-          <button type="button" onClick={() => void downloadExport()}>Export</button>
+          <button type="button" onClick={addRule}>
+            Add rule
+          </button>
+          <button type="button" onClick={() => void downloadExport()}>
+            Export
+          </button>
           <label className="button">
             Import
             <input
@@ -154,9 +158,15 @@ export function OptionsApp() {
             </p>
           </div>
           <div className="toolbar">
-            <button type="button" onClick={() => applyImport("merge")}>Merge</button>
-            <button type="button" onClick={() => applyImport("replace")}>Replace all</button>
-            <button type="button" onClick={() => setPendingImport(undefined)}>Cancel</button>
+            <button type="button" onClick={() => applyImport("merge")}>
+              Merge
+            </button>
+            <button type="button" onClick={() => applyImport("replace")}>
+              Replace all
+            </button>
+            <button type="button" onClick={() => setPendingImport(undefined)}>
+              Cancel
+            </button>
           </div>
         </section>
       )}
