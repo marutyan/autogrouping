@@ -36,6 +36,7 @@
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "oxlint": "latest",
+    "oxlint-tsgolint": "latest",
     "typescript": "latest",
     "vitest": "latest"
   }
