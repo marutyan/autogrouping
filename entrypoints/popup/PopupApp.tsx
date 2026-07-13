@@ -55,6 +55,7 @@ export function PopupApp() {
           <p>Rule-based tab groups without taking control from you or browser agents.</p>
         </div>
         <button
+          type="button"
           className={enabled ? "toggle active" : "toggle"}
           onClick={() => void toggleEnabled()}
         >
@@ -68,10 +69,18 @@ export function PopupApp() {
       </section>
 
       <div className="actions">
-        <button onClick={() => void send("return-tab")}>Return to automation</button>
-        <button onClick={() => void send("protect-tab")}>Protect this tab</button>
-        <button onClick={() => void send("reevaluate-window")}>Re-evaluate window</button>
-        <button onClick={() => void chrome.runtime.openOptionsPage()}>Open rules</button>
+        <button type="button" onClick={() => void send("return-tab")}>
+          Return to automation
+        </button>
+        <button type="button" onClick={() => void send("protect-tab")}>
+          Protect this tab
+        </button>
+        <button type="button" onClick={() => void send("reevaluate-window")}>
+          Re-evaluate window
+        </button>
+        <button type="button" onClick={() => void chrome.runtime.openOptionsPage()}>
+          Open rules
+        </button>
       </div>
     </main>
   );
