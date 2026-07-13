@@ -1,0 +1,18 @@
+:root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #171717; background: #f5f5f5; }
+body { margin: 0; }
+main { max-width: 1050px; margin: 0 auto; padding: 40px 24px; }
+header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
+h1 { margin: 0; font-size: 28px; }
+p { color: #666; }
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+button, .button, input, textarea, select { font: inherit; }
+button, .button { border: 1px solid #d4d4d4; border-radius: 9px; background: white; padding: 9px 12px; cursor: pointer; }
+.primary { background: #171717; color: white; border-color: #171717; }
+.message { padding: 12px; background: #e8e8e8; border-radius: 10px; }
+.rules { display: grid; gap: 12px; margin-top: 28px; }
+article { display: grid; grid-template-columns: 32px minmax(300px, 1fr) 110px 100px 75px; align-items: center; gap: 12px; padding: 16px; border: 1px solid #ddd; border-radius: 14px; background: white; }
+.fields { display: grid; gap: 8px; }
+input, textarea, select { border: 1px solid #d4d4d4; border-radius: 8px; padding: 8px; }
+textarea { resize: vertical; }
+.order { color: #777; text-align: center; }
+.danger { color: #a11; }
