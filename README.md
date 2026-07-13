@@ -13,7 +13,7 @@ A modern Chrome extension for rule-based tab grouping that preserves Chrome Spli
 
 ## Development
 
-Requirements: Node.js 22+, pnpm 10+, and a current Chrome installation.
+Requirements: Node.js 24 LTS+, pnpm 11+, and a current Chrome installation.
 
 ```bash
 corepack enable
