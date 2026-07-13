@@ -1,0 +1,10 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":dependencyDashboard"],
+  "packageRules": [
+    {
+      "matchManagers": ["npm"],
+      "rangeStrategy": "pin"
+    }
+  ]
+}

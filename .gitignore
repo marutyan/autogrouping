@@ -1,0 +1,14 @@
+node_modules/
+.output/
+.wxt/
+coverage/
+dist/
+*.zip
+*.crx
+*.pem
+.env
+.env.*
+!.env.example
+.DS_Store
+playwright-report/
+test-results/

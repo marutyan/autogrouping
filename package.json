@@ -1,0 +1,41 @@
+{
+  "name": "autogrouping",
+  "version": "0.1.0-alpha.1",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.13.1",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev": "wxt",
+    "dev:beta": "wxt --browser chrome --chromium-binary $CHROME_BETA_BINARY",
+    "build": "wxt build",
+    "zip": "wxt zip",
+    "typecheck": "tsc --noEmit",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "lint": "biome lint . && oxlint --type-aware --type-check",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+  },
+  "dependencies": {
+    "@wxt-dev/module-react": "latest",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "wxt": "latest"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "latest",
+    "@playwright/test": "latest",
+    "@types/chrome": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "oxlint": "latest",
+    "typescript": "latest",
+    "vitest": "latest"
+  }
+}

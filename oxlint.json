@@ -1,0 +1,8 @@
+{
+  "plugins": ["typescript", "react", "unicorn", "import", "promise"],
+  "categories": {
+    "correctness": "deny",
+    "suspicious": "warn",
+    "perf": "warn"
+  }
+}
