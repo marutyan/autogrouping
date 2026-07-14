@@ -442,8 +442,8 @@ export function PopupApp() {
               .join(" ");
 
             return (
+              // biome-ignore lint/a11y/noStaticElementInteractions: The row is a drop target with interactive controls inside.
               <div
-                role="listitem"
                 className={rowClasses}
                 key={rule.id}
                 onDragOver={(event) => handleDragOver(event, rule.id)}
