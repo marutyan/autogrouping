@@ -20,12 +20,13 @@
     "format": "biome format --write .",
     "format:check": "biome format .",
     "lint": "biome lint . && oxlint",
+    "policy:audit": "node scripts/runtime-policy-audit.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "store:verify-assets": "node scripts/store-assets.mjs",
     "release:verify-tag": "node scripts/release-tag.mjs",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "check": "pnpm format:check && pnpm lint && pnpm policy:audit && pnpm typecheck && pnpm test && pnpm build"
   },
   "dependencies": {
     "@wxt-dev/module-react": "latest",
