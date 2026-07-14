@@ -49,7 +49,10 @@ test("preserves external groups, resumes after exit, and removes unmatched tabs"
   serviceWorker,
 }) => {
   const result = await serviceWorker.evaluate(async () => {
-    const waitFor = async <T>(read: () => Promise<T>, accept: (value: T) => boolean): Promise<T> => {
+    const waitFor = async <T>(
+      read: () => Promise<T>,
+      accept: (value: T) => boolean,
+    ): Promise<T> => {
       const deadline = Date.now() + 8_000;
       while (Date.now() < deadline) {
         const value = await read();
@@ -61,26 +64,25 @@ test("preserves external groups, resumes after exit, and removes unmatched tabs"
 
     const neutralTab = await chrome.tabs.create({ url: "https://example.com/", active: false });
     if (neutralTab.id === undefined) throw new Error("Missing neutral tab id");
-    const tabId = neutralTab.id;
-    const externalGroupId = await chrome.tabs.group({ tabIds: [tabId] });
+    const externalGroupId = await chrome.tabs.group({ tabIds: [neutralTab.id] });
     await chrome.tabGroups.update(externalGroupId, { title: "Claude", color: "red" });
-    await chrome.tabs.update(tabId, { url: "https://github.com/openai" });
+    await chrome.tabs.update(neutralTab.id, { url: "https://github.com/openai" });
 
     const externalTab = await waitFor(
-      () => chrome.tabs.get(tabId),
+      () => chrome.tabs.get(neutralTab.id as number),
       (tab) => tab.groupId === externalGroupId,
     );
 
-    await chrome.tabs.ungroup(tabId);
+    await chrome.tabs.ungroup(neutralTab.id);
     const managedTab = await waitFor(
-      () => chrome.tabs.get(tabId),
+      () => chrome.tabs.get(neutralTab.id as number),
       (tab) => tab.groupId !== chrome.tabGroups.TAB_GROUP_ID_NONE,
     );
     const managedGroup = await chrome.tabGroups.get(managedTab.groupId);
 
-    await chrome.tabs.update(tabId, { url: "https://example.com/unmatched" });
+    await chrome.tabs.update(neutralTab.id, { url: "https://example.com/unmatched" });
     const unmatchedTab = await waitFor(
-      () => chrome.tabs.get(tabId),
+      () => chrome.tabs.get(neutralTab.id as number),
       (tab) => tab.groupId === chrome.tabGroups.TAB_GROUP_ID_NONE,
     );
 
