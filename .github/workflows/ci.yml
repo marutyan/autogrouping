@@ -52,3 +52,4 @@ jobs:
             .output/*.zip
             SHA256SUMS
           if-no-files-found: error
+          include-hidden-files: true
