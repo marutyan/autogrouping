@@ -33,8 +33,9 @@ export function installInlineColorPicker(): () => void {
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === "Escape") {
+      const trigger = openTrigger;
       closePicker();
-      openTrigger?.focus();
+      trigger?.focus();
       return;
     }
 
@@ -152,7 +153,10 @@ function colorFromTrigger(trigger: HTMLElement): GroupColor | undefined {
 function positionPopover(popover: HTMLDivElement, trigger: HTMLElement): void {
   const rect = trigger.getBoundingClientRect();
   const popoverWidth = 258;
-  const left = Math.max(8, Math.min(window.innerWidth - popoverWidth - 8, rect.right - popoverWidth));
+  const left = Math.max(
+    8,
+    Math.min(window.innerWidth - popoverWidth - 8, rect.right - popoverWidth),
+  );
   const top = Math.min(window.innerHeight - 52, rect.bottom + 6);
   popover.style.left = `${left}px`;
   popover.style.top = `${top}px`;
