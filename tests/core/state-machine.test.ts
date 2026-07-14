@@ -8,6 +8,17 @@ describe("tab state machine", () => {
     expect(left.state).toBe("pending");
   });
 
+  it("marks a managed tab unmatched when its URL stops matching", () => {
+    const managed = reduceTabState(initialTabState(1, 0), {
+      type: "rule-matched",
+      ruleId: "github",
+      at: 1,
+    });
+    const unmatched = reduceTabState(managed, { type: "rule-unmatched", at: 2 });
+    expect(unmatched.state).toBe("unmatched");
+    expect(unmatched.managedRuleId).toBeUndefined();
+  });
+
   it("keeps explicit user protection across rule events", () => {
     const protectedTab = reduceTabState(initialTabState(1, 0), { type: "user-protect", at: 1 });
     const result = reduceTabState(protectedTab, { type: "rule-matched", ruleId: "rule", at: 2 });
