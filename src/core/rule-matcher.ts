@@ -3,6 +3,12 @@ import type { GroupingRule } from "./types";
 const REGEX_SPECIAL = /[\\^$.*+?()[\]{}|]/g;
 const SITE_KEYWORD_PATTERN = /^([a-z0-9-]+)(?:\/\*)?$/i;
 
+export interface MatchingRuleDetail {
+  rule: GroupingRule;
+  pattern: string;
+  specificity: number;
+}
+
 export function wildcardToRegExp(pattern: string): RegExp {
   const normalized = pattern.trim();
   const escaped = normalized.replace(REGEX_SPECIAL, "\\$&").replaceAll("\\*", ".*");
@@ -33,23 +39,28 @@ export function matchesPattern(url: string, pattern: string): boolean {
   return wildcardToRegExp(wildcardPattern).test(url);
 }
 
-export function findMatchingRule(
+export function findMatchingRuleDetail(
   url: string,
   rules: readonly GroupingRule[],
-): GroupingRule | undefined {
-  const matches = rules
+): MatchingRuleDetail | undefined {
+  return rules
     .filter((rule) => rule.enabled)
     .flatMap((rule) =>
       rule.patterns
         .filter((pattern) => matchesPattern(url, pattern))
-        .map((pattern) => ({ rule, specificity: patternSpecificity(pattern) })),
+        .map((pattern) => ({ rule, pattern, specificity: patternSpecificity(pattern) })),
     )
     .sort((a, b) => {
       if (a.rule.priority !== b.rule.priority) return a.rule.priority - b.rule.priority;
       if (a.specificity !== b.specificity) return b.specificity - a.specificity;
       if (a.rule.createdAt !== b.rule.createdAt) return a.rule.createdAt - b.rule.createdAt;
       return a.rule.id.localeCompare(b.rule.id);
-    });
+    })[0];
+}
 
-  return matches[0]?.rule;
+export function findMatchingRule(
+  url: string,
+  rules: readonly GroupingRule[],
+): GroupingRule | undefined {
+  return findMatchingRuleDetail(url, rules)?.rule;
 }
