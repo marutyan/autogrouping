@@ -183,7 +183,9 @@ function clearDropIndicators(): void {
 function finishDrag(): void {
   if (draggedRow) {
     draggedRow.classList.remove("dragging");
-    draggedRow.querySelector<HTMLElement>(`.${HANDLE_CLASS}`)?.setAttribute("aria-grabbed", "false");
+    draggedRow
+      .querySelector<HTMLElement>(`.${HANDLE_CLASS}`)
+      ?.setAttribute("aria-grabbed", "false");
   }
   draggedRow = undefined;
   clearDropIndicators();
