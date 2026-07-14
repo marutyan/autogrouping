@@ -4,14 +4,17 @@
 - [x] Production icons in 16, 32, 48, and 128 px sizes.
 - [x] Concise store listing copy prepared in `docs/STORE_LISTING.md`.
 - [ ] Store screenshots captured and reviewed for sensitive information.
+- [x] Required 440x280 small promotional image generated and reviewed.
 - [x] No analytics, remote code, external API, advertising, or telemetry.
 - [x] Permissions limited to storage, tabs, tabGroups, and contextMenus.
-- [x] Permission justifications and privacy-practice draft prepared.
-- [x] Privacy policy drafted in `PRIVACY.md`.
+- [x] Permission set locked by an automated manifest audit test.
+- [x] Permission justifications and privacy-practice worksheet prepared.
+- [x] Privacy policy drafted in `PRIVACY.md` with local URL handling and Limited Use disclosure.
 - [ ] Privacy policy published at a stable public HTTPS URL and linked in the store dashboard.
+- [ ] Final dashboard data disclosures checked against `PRIVACY.md`, `docs/STORE_LISTING.md`, and extension behavior.
 - [x] Single-purpose description explains rule-based tab grouping.
 - [ ] Stable and Beta manual regression complete.
 - [ ] Split View regression complete on a supported Chrome release.
 - [ ] Browser-agent external-group regression complete.
 - [ ] Release ZIP generated from a clean tagged commit with SHA-256 checksum.
-- [ ] Source, manifest, and store versions match.
+- [x] Source, manifest, and store versions match.
