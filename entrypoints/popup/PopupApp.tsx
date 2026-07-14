@@ -834,7 +834,7 @@ function describeTabStatus(
   state: TabStateRecord | undefined,
   tab: chrome.tabs.Tab | undefined,
   rules: readonly GroupingRule[],
-): { title: string; detail?: string } {
+): { title: string; detail: string | undefined } {
   const matching = tab?.url ? findMatchingRuleDetail(tab.url, rules) : undefined;
   const managedRule = state?.managedRuleId
     ? rules.find((rule) => rule.id === state.managedRuleId)
