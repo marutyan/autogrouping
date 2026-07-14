@@ -1,0 +1,183 @@
+$ playwright test
+
+Running 2 tests using 1 worker
+××F××F
+
+  1) tests/e2e/autogrouping.spec.ts:59:1 › popup shows rule reasons, conflicts, and no separate settings page 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+    Call Log:
+    - Timeout 8000ms exceeded while waiting on the predicate
+
+      48 |       { timeout: 8_000 },
+      49 |     )
+    > 50 |     .toBe(true);
+         |      ^
+      51 |
+      52 |   await serviceWorker.evaluate(async (nextSettings) => {
+      53 |     await chrome.storage.sync.set({ settings: nextSettings });
+        at /home/runner/work/autogrouping/autogrouping/tests/e2e/autogrouping.spec.ts:50:6
+
+    Error Context: test-results/autogrouping-popup-shows-r-c8986-d-no-separate-settings-page/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/autogrouping-popup-shows-r-c8986-d-no-separate-settings-page/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/autogrouping-popup-shows-r-c8986-d-no-separate-settings-page/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+    Call Log:
+    - Timeout 8000ms exceeded while waiting on the predicate
+
+      48 |       { timeout: 8_000 },
+      49 |     )
+    > 50 |     .toBe(true);
+         |      ^
+      51 |
+      52 |   await serviceWorker.evaluate(async (nextSettings) => {
+      53 |     await chrome.storage.sync.set({ settings: nextSettings });
+        at /home/runner/work/autogrouping/autogrouping/tests/e2e/autogrouping.spec.ts:50:6
+
+    Error Context: test-results/autogrouping-popup-shows-r-c8986-d-no-separate-settings-page-retry1/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/autogrouping-popup-shows-r-c8986-d-no-separate-settings-page-retry1/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/autogrouping-popup-shows-r-c8986-d-no-separate-settings-page-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #2 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+    Call Log:
+    - Timeout 8000ms exceeded while waiting on the predicate
+
+      48 |       { timeout: 8_000 },
+      49 |     )
+    > 50 |     .toBe(true);
+         |      ^
+      51 |
+      52 |   await serviceWorker.evaluate(async (nextSettings) => {
+      53 |     await chrome.storage.sync.set({ settings: nextSettings });
+        at /home/runner/work/autogrouping/autogrouping/tests/e2e/autogrouping.spec.ts:50:6
+
+    Error Context: test-results/autogrouping-popup-shows-r-c8986-d-no-separate-settings-page-retry2/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/autogrouping-popup-shows-r-c8986-d-no-separate-settings-page-retry2/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/autogrouping-popup-shows-r-c8986-d-no-separate-settings-page-retry2/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) tests/e2e/autogrouping.spec.ts:71:1 › preserves external groups, resumes after exit, and removes unmatched tabs 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+    Call Log:
+    - Timeout 8000ms exceeded while waiting on the predicate
+
+      48 |       { timeout: 8_000 },
+      49 |     )
+    > 50 |     .toBe(true);
+         |      ^
+      51 |
+      52 |   await serviceWorker.evaluate(async (nextSettings) => {
+      53 |     await chrome.storage.sync.set({ settings: nextSettings });
+        at /home/runner/work/autogrouping/autogrouping/tests/e2e/autogrouping.spec.ts:50:6
+
+    Error Context: test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+    Call Log:
+    - Timeout 8000ms exceeded while waiting on the predicate
+
+      48 |       { timeout: 8_000 },
+      49 |     )
+    > 50 |     .toBe(true);
+         |      ^
+      51 |
+      52 |   await serviceWorker.evaluate(async (nextSettings) => {
+      53 |     await chrome.storage.sync.set({ settings: nextSettings });
+        at /home/runner/work/autogrouping/autogrouping/tests/e2e/autogrouping.spec.ts:50:6
+
+    Error Context: test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs-retry1/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs-retry1/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #2 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+    Call Log:
+    - Timeout 8000ms exceeded while waiting on the predicate
+
+      48 |       { timeout: 8_000 },
+      49 |     )
+    > 50 |     .toBe(true);
+         |      ^
+      51 |
+      52 |   await serviceWorker.evaluate(async (nextSettings) => {
+      53 |     await chrome.storage.sync.set({ settings: nextSettings });
+        at /home/runner/work/autogrouping/autogrouping/tests/e2e/autogrouping.spec.ts:50:6
+
+    Error Context: test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs-retry2/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs-retry2/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs-retry2/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    tests/e2e/autogrouping.spec.ts:59:1 › popup shows rule reasons, conflicts, and no separate settings page 
+    tests/e2e/autogrouping.spec.ts:71:1 › preserves external groups, resumes after exit, and removes unmatched tabs 
+[ELIFECYCLE] Command failed with exit code 1.
