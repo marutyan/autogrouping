@@ -35,6 +35,12 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
       - name: Extension E2E tests
         run: pnpm test:e2e
+      - name: Upload store screenshot candidates
+        uses: actions/upload-artifact@v4
+        with:
+          name: autogrouping-store-screenshots
+          path: artifacts/store-screenshots/*.png
+          if-no-files-found: error
       - name: Package extension
         run: pnpm zip
       - uses: actions/upload-artifact@v4
