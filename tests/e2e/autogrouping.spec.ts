@@ -146,7 +146,10 @@ async function readTabState(serviceWorker: Worker, tabId: number): Promise<strin
 
 async function startTestServer(): Promise<Server> {
   const server = createServer((_request, response) => {
-    response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    response.writeHead(200, {
+      connection: "close",
+      "content-type": "text/html; charset=utf-8",
+    });
     response.end("<!doctype html><title>AutoGrouping E2E</title>");
   });
   await new Promise<void>((resolve, reject) => {
@@ -157,6 +160,7 @@ async function startTestServer(): Promise<Server> {
 }
 
 async function closeServer(server: Server): Promise<void> {
+  server.closeAllConnections();
   await new Promise<void>((resolve, reject) => {
     server.close((error) => (error ? reject(error) : resolve()));
   });
