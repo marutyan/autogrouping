@@ -142,13 +142,8 @@ export function OptionsApp() {
             <strong>Import preview</strong>
             <p>
               {pendingImport.settings.rules.length} rule
-              {pendingImport.settings.rules.length === 1 ? "" : "s"} from{
-                " "
-              }
-              {pendingImport.source}
-              {pendingImport.warnings.length > 0
-                ? ` — ${pendingImport.warnings.join(" ")}`
-                : ""}
+              {pendingImport.settings.rules.length === 1 ? "" : "s"} from {pendingImport.source}
+              {pendingImport.warnings.length > 0 ? ` — ${pendingImport.warnings.join(" ")}` : ""}
             </p>
           </div>
           <div className="toolbar">
@@ -224,9 +219,7 @@ export function OptionsApp() {
                   <button
                     type="button"
                     key={color}
-                    className={
-                      rule.color === color ? "color-swatch selected" : "color-swatch"
-                    }
+                    className={rule.color === color ? "color-swatch selected" : "color-swatch"}
                     style={{ backgroundColor: GROUP_COLOR_HEX[color] }}
                     aria-label={color}
                     aria-pressed={rule.color === color}
@@ -248,9 +241,7 @@ export function OptionsApp() {
             <button
               type="button"
               className="danger"
-              onClick={() =>
-                setRules((current) => current.filter((item) => item.id !== rule.id))
-              }
+              onClick={() => setRules((current) => current.filter((item) => item.id !== rule.id))}
             >
               Delete
             </button>
