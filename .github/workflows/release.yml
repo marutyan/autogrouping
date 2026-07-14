@@ -19,6 +19,14 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+      - name: Verify release tag matches package version
+        run: |
+          package_version="$(node -p "JSON.parse(require('node:fs').readFileSync('package.json', 'utf8')).version")"
+          expected_tag="v${package_version}"
+          if [ "$GITHUB_REF_NAME" != "$expected_tag" ]; then
+            echo "::error::Release tag $GITHUB_REF_NAME does not match package version $package_version (expected $expected_tag)."
+            exit 1
+          fi
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - run: pnpm zip
