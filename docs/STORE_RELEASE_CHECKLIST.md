@@ -5,7 +5,9 @@
 - [x] Concise store listing copy prepared in `docs/STORE_LISTING.md`.
 - [ ] Store screenshots captured and reviewed for sensitive information.
 - [x] Required 440x280 small promotional image generated and reviewed.
+- [x] Generated store asset dimensions are verified automatically.
 - [x] No analytics, remote code, external API, advertising, or telemetry.
+- [x] Runtime source audit rejects undeclared network, dynamic-code, and remote-code APIs.
 - [x] Permissions limited to storage, tabs, tabGroups, and contextMenus.
 - [x] Permission set locked by an automated manifest audit test.
 - [x] Permission justifications and privacy-practice worksheet prepared.
@@ -17,4 +19,5 @@
 - [ ] Split View regression complete on a supported Chrome release.
 - [ ] Browser-agent external-group regression complete.
 - [ ] Release ZIP generated from a clean tagged commit with SHA-256 checksum.
+- [x] Package checksums are verified automatically before artifact upload or release publication.
 - [x] Source, manifest, and store versions match.
