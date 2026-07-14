@@ -87,8 +87,7 @@ export class AutoGroupingController {
     chrome.tabs.onDetached.addListener((tabId) => this.#tabScheduler.cancel(tabId));
 
     chrome.tabGroups.onRemoved.addListener((group) => {
-      this.#ownedGroups.delete(group.id);
-      void this.#persistOwnedGroups();
+      void this.#handleGroupRemoved(group);
     });
 
     chrome.tabGroups.onUpdated.addListener((group) => {
@@ -353,6 +352,34 @@ export class AutoGroupingController {
       await this.#persistTabStates();
     }
     this.#scheduleEvaluation(tabId, 0);
+  }
+
+  async #handleGroupRemoved(group: chrome.tabGroups.TabGroup): Promise<void> {
+    const ownedChanged = this.#ownedGroups.delete(group.id);
+    if (ownedChanged) await this.#persistOwnedGroups();
+
+    const tabs = await chrome.tabs.query({ windowId: group.windowId });
+    let stateChanged = false;
+    for (const tab of tabs) {
+      if (tab.id === undefined) continue;
+      const current = this.#tabStates.get(tab.id);
+      if (current?.state !== "protected-external") continue;
+      if (
+        tab.groupId !== undefined &&
+        tab.groupId !== TAB_GROUP_ID_NONE &&
+        !this.#ownedGroups.has(tab.groupId)
+      ) {
+        continue;
+      }
+
+      this.#tabStates.set(
+        tab.id,
+        reduceTabState(current, { type: "external-left", at: Date.now() }),
+      );
+      this.#scheduleEvaluation(tab.id, 0);
+      stateChanged = true;
+    }
+    if (stateChanged) await this.#persistTabStates();
   }
 
   async #handleOwnedGroupMetadataChange(group: chrome.tabGroups.TabGroup): Promise<void> {
