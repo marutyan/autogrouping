@@ -92,8 +92,7 @@ test("preserves ownership when a matching tab moves between external groups", as
       .toEqual({ groupId: firstGroupId, state: "protected-external" });
 
     await serviceWorker.evaluate(
-      async ({ currentTabId, groupId }) =>
-        chrome.tabs.group({ tabIds: [currentTabId], groupId }),
+      async ({ currentTabId, groupId }) => chrome.tabs.group({ tabIds: [currentTabId], groupId }),
       { currentTabId: targetTabId, groupId: secondGroupId },
     );
 
