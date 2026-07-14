@@ -6,7 +6,7 @@ The Playwright suite builds and loads the unpacked extension and verifies:
 
 - popup rendering, match-order guidance, conflict warnings, and React drag handles
 - preservation of user, Claude, and other externally owned groups
-- automatic resumption after a tab leaves an external group
+- automatic resumption after a tab leaves an external group, including removal of a one-tab group
 - automatic removal from an AutoGrouping group after the URL no longer matches
 
 Unit tests cover matching, state transitions, mutation tracking, scheduling, group ordering, and rule-conflict detection.
@@ -23,7 +23,8 @@ Unit tests cover matching, state transitions, mutation tracking, scheduling, gro
 2. Verify AutoGrouping does not move it while it remains in that group.
 3. Remove it from the external group.
 4. Verify the matching AutoGrouping rule is applied automatically.
-5. Move it into another external group and confirm that ownership is preserved again.
+5. Repeat with a one-tab external group that disappears when the tab leaves.
+6. Move the tab into another external group and confirm that ownership is preserved again.
 
 ## Browser-agent regression
 
