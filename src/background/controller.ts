@@ -1,7 +1,8 @@
+import { changedSplitViewId, isSplitViewTab } from "../browser/chrome-types";
 import { MutationTracker } from "../core/mutation-tracker";
 import { findMatchingRule } from "../core/rule-matcher";
-import { initialTabState, reduceTabState } from "../core/state-machine";
 import { KeyedMutex, KeyedScheduler } from "../core/scheduler";
+import { initialTabState, reduceTabState } from "../core/state-machine";
 import {
   TAB_GROUP_ID_NONE,
   type ExtensionSettings,
@@ -9,7 +10,6 @@ import {
   type OwnedGroup,
   type TabStateRecord,
 } from "../core/types";
-import { changedSplitViewId, isSplitViewTab } from "../browser/chrome-types";
 import { ExtensionStorage } from "./storage";
 
 const MENU_RETURN = "autogrouping:return";
@@ -44,7 +44,7 @@ export class AutoGroupingController {
       if (tab.id === undefined) return;
       this.#tabStates.set(tab.id, initialTabState(tab.id));
       void this.#persistTabStates();
-      this.#scheduleEvaluation(tab.id, this.#settings?.newTabGracePeriodMs ?? 1000);
+      this.#scheduleEvaluation(tab.id, 0);
     });
 
     chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
@@ -79,11 +79,11 @@ export class AutoGroupingController {
       this.#tabStates.delete(removedTabId);
       if (prior)
         this.#tabStates.set(addedTabId, { ...prior, tabId: addedTabId, updatedAt: Date.now() });
-      this.#scheduleEvaluation(addedTabId, 100);
+      this.#scheduleEvaluation(addedTabId, 0);
       void this.#persistTabStates();
     });
 
-    chrome.tabs.onAttached.addListener((tabId) => this.#scheduleEvaluation(tabId, 200));
+    chrome.tabs.onAttached.addListener((tabId) => this.#scheduleEvaluation(tabId, 0));
     chrome.tabs.onDetached.addListener((tabId) => this.#tabScheduler.cancel(tabId));
 
     chrome.tabGroups.onRemoved.addListener((group) => {
@@ -139,6 +139,12 @@ export class AutoGroupingController {
 
   async protectTab(tabId: number): Promise<void> {
     const current = this.#tabStates.get(tabId) ?? initialTabState(tabId);
+    this.#tabStates.set(tabId, reduceTabState(current, { type: "user-protect", at: Date.now() }));
+    await this.#persistTabStates();
+  }
+
+  async #markExternalGroup(tabId: number): Promise<void> {
+    const current = this.#tabStates.get(tabId) ?? initialTabState(tabId);
     this.#tabStates.set(tabId, reduceTabState(current, { type: "external-group", at: Date.now() }));
     await this.#persistTabStates();
   }
@@ -158,7 +164,7 @@ export class AutoGroupingController {
     const current = this.#tabStates.get(tabId) ?? initialTabState(tabId);
     this.#tabStates.set(tabId, reduceTabState(current, { type: "manual-reset", at: Date.now() }));
     await this.#persistTabStates();
-    this.#scheduleEvaluation(tabId, 0, false);
+    this.#scheduleEvaluation(tabId, 0);
   }
 
   async reevaluateWindow(windowId: number): Promise<void> {
@@ -166,16 +172,8 @@ export class AutoGroupingController {
     for (const tab of tabs) if (tab.id !== undefined) this.#scheduleEvaluation(tab.id, 0);
   }
 
-  #scheduleEvaluation(tabId: number, delayMs: number, respectGrace = true): void {
-    const state = this.#tabStates.get(tabId);
-    const gracePeriodMs = this.#settings?.newTabGracePeriodMs ?? 1000;
-    const remainingGrace =
-      respectGrace && state?.state === "pending"
-        ? Math.max(0, state.updatedAt + gracePeriodMs - Date.now())
-        : 0;
-    this.#tabScheduler.schedule(tabId, Math.max(delayMs, remainingGrace), () =>
-      this.#evaluateTab(tabId),
-    );
+  #scheduleEvaluation(tabId: number, delayMs: number): void {
+    this.#tabScheduler.schedule(tabId, delayMs, () => this.#evaluateTab(tabId));
   }
 
   async #evaluateTab(tabId: number): Promise<void> {
@@ -188,8 +186,8 @@ export class AutoGroupingController {
       return;
     }
     if (tab.id === undefined || tab.windowId === undefined) return;
-    const current = this.#tabStates.get(tabId) ?? initialTabState(tabId);
-    if (current.state === "protected-external") return;
+    let current = this.#tabStates.get(tabId) ?? initialTabState(tabId);
+    if (current.state === "protected-user") return;
 
     if (isSplitViewTab(tab)) {
       this.#tabStates.set(
@@ -209,9 +207,14 @@ export class AutoGroupingController {
     if (tab.groupId !== undefined && tab.groupId !== TAB_GROUP_ID_NONE) {
       const owned = this.#ownedGroups.get(tab.groupId);
       if (!owned) {
-        await this.protectTab(tabId);
+        if (current.state !== "protected-external") await this.#markExternalGroup(tabId);
         return;
       }
+    }
+
+    if (current.state === "protected-external") {
+      current = reduceTabState(current, { type: "external-left", at: Date.now() });
+      this.#tabStates.set(tabId, current);
     }
 
     if (!tab.url || !/^https?:/i.test(tab.url)) {
@@ -317,9 +320,24 @@ export class AutoGroupingController {
       return;
     }
 
-    // Any unplanned membership change is treated as user/agent/extension intent.
-    // Protection remains even if the external actor later ungroups the tab.
-    await this.protectTab(tabId);
+    if (
+      tab.groupId !== undefined &&
+      tab.groupId !== TAB_GROUP_ID_NONE &&
+      !this.#ownedGroups.has(tab.groupId)
+    ) {
+      await this.#markExternalGroup(tabId);
+      return;
+    }
+
+    const current = this.#tabStates.get(tabId) ?? initialTabState(tabId);
+    if (current.state === "protected-external") {
+      this.#tabStates.set(
+        tabId,
+        reduceTabState(current, { type: "external-left", at: Date.now() }),
+      );
+      await this.#persistTabStates();
+    }
+    this.#scheduleEvaluation(tabId, 0);
   }
 
   async #handleOwnedGroupMetadataChange(group: chrome.tabGroups.TabGroup): Promise<void> {
@@ -333,7 +351,7 @@ export class AutoGroupingController {
     await this.#persistOwnedGroups();
     const tabs = await chrome.tabs.query({ windowId: group.windowId, groupId: group.id });
     await Promise.all(
-      tabs.flatMap((tab) => (tab.id === undefined ? [] : [this.protectTab(tab.id)])),
+      tabs.flatMap((tab) => (tab.id === undefined ? [] : [this.#markExternalGroup(tab.id)])),
     );
   }
 
@@ -416,9 +434,16 @@ export class AutoGroupingController {
         tab.groupId !== TAB_GROUP_ID_NONE &&
         !this.#ownedGroups.has(tab.groupId)
       ) {
-        await this.protectTab(tab.id);
+        await this.#markExternalGroup(tab.id);
       } else {
-        this.#scheduleEvaluation(tab.id, 200);
+        const current = this.#tabStates.get(tab.id);
+        if (current?.state === "protected-external") {
+          this.#tabStates.set(
+            tab.id,
+            reduceTabState(current, { type: "external-left", at: Date.now() }),
+          );
+        }
+        this.#scheduleEvaluation(tab.id, 0);
       }
     }
     await this.#persistTabStates();
@@ -427,7 +452,7 @@ export class AutoGroupingController {
   async #reloadSettingsAndEvaluate(): Promise<void> {
     this.#settings = await this.#storage.getSettings();
     const tabs = await chrome.tabs.query({});
-    for (const tab of tabs) if (tab.id !== undefined) this.#scheduleEvaluation(tab.id, 100);
+    for (const tab of tabs) if (tab.id !== undefined) this.#scheduleEvaluation(tab.id, 0);
   }
 
   async #installMenus(): Promise<void> {
