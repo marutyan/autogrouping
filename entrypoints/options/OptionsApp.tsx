@@ -1,5 +1,5 @@
 import { useEffect, useState, type ChangeEvent } from "react";
-import type { GroupColor, GroupingRule } from "../../src/core/types";
+import type { GroupingRule } from "../../src/core/types";
 import { validateSettings } from "../../src/core/rule-validation";
 import {
   exportSettings,
@@ -7,19 +7,8 @@ import {
   previewImport,
   type ImportPreview,
 } from "../../src/migration/import-export";
+import { GROUP_COLORS, GROUP_COLOR_HEX } from "../../src/ui/group-colors";
 import { loadSettings, saveSettings } from "../../src/ui/storage";
-
-const colors: GroupColor[] = [
-  "grey",
-  "blue",
-  "red",
-  "yellow",
-  "green",
-  "pink",
-  "purple",
-  "cyan",
-  "orange",
-];
 
 export function OptionsApp() {
   const [rules, setRules] = useState<GroupingRule[]>([]);
@@ -223,25 +212,30 @@ export function OptionsApp() {
                 }
               />
             </div>
-            <select
-              aria-label="Group color"
-              value={rule.color}
-              onChange={(event: ChangeEvent<HTMLSelectElement>) =>
-                updateRule(rule.id, { color: event.target.value as GroupColor })
-              }
-            >
-              {colors.map((color) => (
-                <option key={color}>{color}</option>
-              ))}
-            </select>
-            <label>
+            <fieldset className="color-fieldset">
+              <legend>Color</legend>
+              <div className="color-picker">
+                {GROUP_COLORS.map((color) => (
+                  <button
+                    type="button"
+                    key={color}
+                    className={rule.color === color ? "color-swatch selected" : "color-swatch"}
+                    style={{ backgroundColor: GROUP_COLOR_HEX[color] }}
+                    aria-label={color}
+                    aria-pressed={rule.color === color}
+                    onClick={() => updateRule(rule.id, { color })}
+                  />
+                ))}
+              </div>
+            </fieldset>
+            <label className="enabled-control">
               <input
                 type="checkbox"
                 checked={rule.enabled}
                 onChange={(event: ChangeEvent<HTMLInputElement>) =>
                   updateRule(rule.id, { enabled: event.target.checked })
                 }
-              />{" "}
+              />
               Enabled
             </label>
             <button
