@@ -1,3 +1,4 @@
+# Temporary workflow: applies the controller patch and deletes itself.
 name: One-time settings refresh fix
 
 on:
