@@ -1,6 +1,7 @@
 import type { GroupingRule } from "./types";
 
 const REGEX_SPECIAL = /[\\^$.*+?()[\]{}|]/g;
+const SITE_KEYWORD_PATTERN = /^([a-z0-9-]+)(?:\/\*)?$/i;
 
 export function wildcardToRegExp(pattern: string): RegExp {
   const normalized = pattern.trim();
@@ -13,9 +14,23 @@ export function patternSpecificity(pattern: string): number {
 }
 
 export function matchesPattern(url: string, pattern: string): boolean {
-  if (!url || !pattern.trim()) return false;
-  const normalizedPattern = pattern.includes("://") ? pattern : `*://${pattern}`;
-  return wildcardToRegExp(normalizedPattern).test(url);
+  const normalizedPattern = pattern.trim();
+  if (!url || !normalizedPattern) return false;
+
+  const siteKeyword = normalizedPattern.match(SITE_KEYWORD_PATTERN)?.[1]?.toLowerCase();
+  if (siteKeyword) {
+    try {
+      const hostnameLabels = new URL(url).hostname.toLowerCase().split(".");
+      return hostnameLabels.includes(siteKeyword);
+    } catch {
+      return false;
+    }
+  }
+
+  const wildcardPattern = normalizedPattern.includes("://")
+    ? normalizedPattern
+    : `*://${normalizedPattern}`;
+  return wildcardToRegExp(wildcardPattern).test(url);
 }
 
 export function findMatchingRule(
