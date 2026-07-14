@@ -19,7 +19,7 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - run: pnpm zip
       - run: sha256sum .output/*.zip > SHA256SUMS
