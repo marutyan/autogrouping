@@ -1,5 +1,6 @@
 import { mkdirSync } from "node:fs";
 import path from "node:path";
+import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 
 const settings = {
@@ -39,6 +40,7 @@ const settings = {
 };
 
 const screenshotDirectory = path.join(process.cwd(), "artifacts", "store-screenshots");
+const storeScreenshotSize = { width: 1280, height: 800 } as const;
 
 test("generates deterministic Chrome Web Store popup candidates", async ({
   page,
@@ -51,26 +53,28 @@ test("generates deterministic Chrome Web Store popup candidates", async ({
     await chrome.storage.sync.set({ settings: nextSettings });
   }, settings);
 
-  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.setViewportSize(storeScreenshotSize);
   await page.goto(`chrome-extension://${extensionId}/popup.html`);
   await page.addStyleTag({
     content: `
       html {
+        min-height: 100%;
         background: #161719;
       }
 
       body {
         width: 720px;
         min-width: 720px;
-        margin: 48px auto;
+        min-height: 800px;
+        margin: 0 auto;
         overflow: hidden;
-        border: 1px solid #3c4043;
-        border-radius: 16px;
-        box-shadow: 0 24px 72px rgb(0 0 0 / 45%);
+        border-right: 1px solid #3c4043;
+        border-left: 1px solid #3c4043;
       }
 
       main {
-        max-height: 704px;
+        min-height: 800px;
+        max-height: 800px;
       }
     `,
   });
@@ -78,18 +82,12 @@ test("generates deterministic Chrome Web Store popup candidates", async ({
   await expect(page.getByRole("button", { name: "Edit Research" })).toBeVisible();
   await expect(page.getByText("Overlaps: Engineering")).toBeVisible();
 
-  await page.screenshot({
-    path: path.join(screenshotDirectory, "01-main-popup.png"),
-    animations: "disabled",
-  });
+  await captureStoreScreenshot(page, "01-main-popup.png");
 
   await page.getByRole("button", { name: "Edit Research" }).click();
   const editor = page.locator(".editor");
   await expect(editor.getByRole("heading", { name: "Edit group" })).toBeVisible();
-  await editor.screenshot({
-    path: path.join(screenshotDirectory, "02-group-editor.png"),
-    animations: "disabled",
-  });
+  await captureStoreScreenshot(page, "02-group-editor.png");
 
   await page.getByRole("button", { name: "Close group editor" }).click();
   const colorButton = page.getByRole("button", {
@@ -99,8 +97,13 @@ test("generates deterministic Chrome Web Store popup candidates", async ({
   const researchRow = page.locator(".rule-row").filter({ has: colorButton });
   await colorButton.click();
   await expect(researchRow.getByRole("listbox", { name: "Group color" })).toBeVisible();
-  await researchRow.screenshot({
-    path: path.join(screenshotDirectory, "03-inline-color-picker.png"),
+  await captureStoreScreenshot(page, "03-inline-color-picker.png");
+});
+
+async function captureStoreScreenshot(page: Page, filename: string): Promise<void> {
+  expect(page.viewportSize()).toEqual(storeScreenshotSize);
+  await page.screenshot({
+    path: path.join(screenshotDirectory, filename),
     animations: "disabled",
   });
-});
+}

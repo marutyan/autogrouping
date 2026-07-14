@@ -74,7 +74,17 @@ The final submission should be checked against the current Chrome Web Store ques
 
 ## Screenshot plan
 
-Capture screenshots at the dimensions required by the Chrome Web Store dashboard. Use real-looking but non-sensitive sample rules and tabs.
+Chrome Web Store screenshots must use square outer corners and full-bleed presentation at exactly `1280x800` or `640x400` pixels. Use `1280x800` unless the downscaled result becomes difficult to read. Official requirements: `https://developer.chrome.com/docs/webstore/images#screenshots`.
+
+Use real-looking but non-sensitive sample rules and tabs.
+
+The CI artifact `autogrouping-store-screenshots` automatically generates these `1280x800` candidates:
+
+- `01-main-popup.png`
+- `02-group-editor.png`
+- `03-inline-color-picker.png`
+
+Capture the remaining browser-dependent states manually at `1280x800`.
 
 1. **Main popup and group list**
    - Show three groups with different colors and target-site chips.
