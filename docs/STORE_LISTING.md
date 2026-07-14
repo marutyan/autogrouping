@@ -98,11 +98,13 @@ Capture screenshots at the dimensions required by the Chrome Web Store dashboard
 
 ## Publication links
 
-Before submission, provide stable public HTTPS URLs for:
+Copy these public HTTPS URLs into the Chrome Web Store dashboard:
 
-- Privacy policy: publish the repository's `PRIVACY.md`
-- Support: use the repository Issues page
-- Source code: use the repository homepage
+- **Privacy policy:** `https://github.com/marutyan/autogrouping/blob/main/PRIVACY.md`
+- **Support:** `https://github.com/marutyan/autogrouping/issues`
+- **Source code:** `https://github.com/marutyan/autogrouping`
+
+Do not mark the dashboard step complete until the URLs have been entered and verified in the submitted listing.
 
 ## Release notes draft for 0.1.0
 
