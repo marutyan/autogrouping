@@ -16,12 +16,17 @@ describe("runtime policy audit", () => {
 
   it("reports network APIs with file and line information", () => {
     expect(
-      findRuntimePolicyViolations('const payload = {};\nawait fetch("/telemetry", payload);', "fixture.ts"),
+      findRuntimePolicyViolations(
+        'const payload = {};\nawait fetch("/telemetry", payload);',
+        "fixture.ts",
+      ),
     ).toEqual([{ filePath: "fixture.ts", line: 2, rule: "network: fetch" }]);
   });
 
   it("reports dynamic code execution", () => {
-    expect(findRuntimePolicyViolations('const run = new Function("return 1");', "fixture.ts")).toEqual([
+    expect(
+      findRuntimePolicyViolations('const run = new Function("return 1");', "fixture.ts"),
+    ).toEqual([
       { filePath: "fixture.ts", line: 1, rule: "dynamic code: Function constructor" },
     ]);
   });
