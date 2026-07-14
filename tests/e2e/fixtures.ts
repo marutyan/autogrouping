@@ -6,7 +6,7 @@ export const test = base.extend<{
   extensionId: string;
   serviceWorker: Worker;
 }>({
-  context: async (_fixtures, use) => {
+  context: async ({ browserName: _browserName }, use) => {
     const extensionPath = path.join(process.cwd(), ".output/chrome-mv3");
     const context = await chromium.launchPersistentContext("", {
       channel: "chromium",
