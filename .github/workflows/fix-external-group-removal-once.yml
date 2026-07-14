@@ -27,48 +27,54 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
           path = Path('src/background/controller.ts')
           text = path.read_text()
-          old_listener = '''    chrome.tabGroups.onRemoved.addListener((group) => {
-              this.#ownedGroups.delete(group.id);
-              void this.#persistOwnedGroups();
-            });'''
-          new_listener = '''    chrome.tabGroups.onRemoved.addListener((group) => {
-              void this.#handleGroupRemoved(group);
-            });'''
-          if old_listener not in text:
+          listener_pattern = re.compile(
+              r'    chrome\.tabGroups\.onRemoved\.addListener\(\(group\) => \{\n'
+              r'      this\.#ownedGroups\.delete\(group\.id\);\n'
+              r'      void this\.#persistOwnedGroups\(\);\n'
+              r'    \}\);'
+          )
+          text, count = listener_pattern.subn(
+              '    chrome.tabGroups.onRemoved.addListener((group) => {\n'
+              '      void this.#handleGroupRemoved(group);\n'
+              '    });',
+              text,
+              count=1,
+          )
+          if count != 1:
               raise SystemExit('tabGroups.onRemoved listener not found')
-          text = text.replace(old_listener, new_listener, 1)
 
-          marker = '''  async #handleOwnedGroupMetadataChange(group: chrome.tabGroups.TabGroup): Promise<void> {'''
+          marker = '  async #handleOwnedGroupMetadataChange(group: chrome.tabGroups.TabGroup): Promise<void> {'
           method = '''  async #handleGroupRemoved(group: chrome.tabGroups.TabGroup): Promise<void> {
-              const ownedChanged = this.#ownedGroups.delete(group.id);
-              if (ownedChanged) await this.#persistOwnedGroups();
+            const ownedChanged = this.#ownedGroups.delete(group.id);
+            if (ownedChanged) await this.#persistOwnedGroups();
 
-              const tabs = await chrome.tabs.query({ windowId: group.windowId });
-              let stateChanged = false;
-              for (const tab of tabs) {
-                if (tab.id === undefined) continue;
-                const current = this.#tabStates.get(tab.id);
-                if (current?.state !== "protected-external") continue;
-                if (
-                  tab.groupId !== undefined &&
-                  tab.groupId !== TAB_GROUP_ID_NONE &&
-                  !this.#ownedGroups.has(tab.groupId)
-                ) {
-                  continue;
-                }
-
-                this.#tabStates.set(
-                  tab.id,
-                  reduceTabState(current, { type: "external-left", at: Date.now() }),
-                );
-                this.#scheduleEvaluation(tab.id, 0);
-                stateChanged = true;
+            const tabs = await chrome.tabs.query({ windowId: group.windowId });
+            let stateChanged = false;
+            for (const tab of tabs) {
+              if (tab.id === undefined) continue;
+              const current = this.#tabStates.get(tab.id);
+              if (current?.state !== "protected-external") continue;
+              if (
+                tab.groupId !== undefined &&
+                tab.groupId !== TAB_GROUP_ID_NONE &&
+                !this.#ownedGroups.has(tab.groupId)
+              ) {
+                continue;
               }
-              if (stateChanged) await this.#persistTabStates();
+
+              this.#tabStates.set(
+                tab.id,
+                reduceTabState(current, { type: "external-left", at: Date.now() }),
+              );
+              this.#scheduleEvaluation(tab.id, 0);
+              stateChanged = true;
             }
+            if (stateChanged) await this.#persistTabStates();
+          }
 
           '''
           if marker not in text:
