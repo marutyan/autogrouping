@@ -31,7 +31,13 @@ export function PopupApp() {
         currentWindow: true,
       });
       setTab(activeTab);
-      await refreshStatus(activeTab);
+      if (activeTab?.id !== undefined) {
+        const response = await safeSendMessage<StatusResponse>({
+          type: "get-status",
+          tabId: activeTab.id,
+        });
+        setState(response?.state);
+      }
     })();
   }, []);
 
