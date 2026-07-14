@@ -2,24 +2,38 @@
 
 ## Ownership boundary
 
-AutoGrouping only mutates groups recorded as its own. A tab membership change that does not match a pending AutoGrouping mutation is classified as external intent and remains protected until the tab closes or the user explicitly returns it to automation.
+AutoGrouping only mutates groups recorded as its own. While a tab belongs to a user, Claude, browser-agent, or other-extension group, that membership is treated as external intent and left untouched. The protection is temporary: after the tab leaves the external group, normal URL-rule evaluation resumes automatically. Explicit user protection remains sticky until Return to automation is selected.
 
 ## Split View boundary
 
-Split View is detected through feature detection. No group mutation is issued while a tab or its window is in Split View. Group-membership changes during the Split View transition are deferred to avoid mistaking Chrome's internal changes for user or agent intent.
+Split View is detected through feature detection. No group mutation or sorting operation is issued while a tab or its window is in Split View. Group-membership changes during the Split View transition are deferred to avoid mistaking Chrome's internal changes for user or agent intent.
+
+## Popup architecture
+
+The popup is the complete configuration surface. Drag reordering, inline color selection, conflict feedback, match reasons, and Undo are implemented as React state and event handlers. There are no DOM-observer shims and no separate options page.
+
+Rule order has two effects:
+
+1. Matching priority is evaluated from top to bottom.
+2. AutoGrouping-owned Chrome groups are sorted into the same order after pinned tabs.
 
 ## Storage
 
 - `storage.sync`: user settings and grouping rules.
 - `storage.session`: tab state and session-specific group IDs.
-- `storage.local`: schema metadata and persistent evidence that AutoGrouping previously created a group for a rule.
+- `storage.local`: persistent evidence that AutoGrouping previously created a group for a rule.
 
 ## Event model
 
-- Per-tab scheduler coalesces rapid updates.
-- Per-window mutex serializes grouping mutations.
-- Pending-mutation tracker distinguishes internal changes from external changes.
+- Per-tab schedulers coalesce rapid URL and grouping updates.
+- A per-window mutex serializes grouping mutations.
+- A pending-mutation tracker distinguishes internal changes from external changes.
+- A window sorter moves only AutoGrouping-owned groups.
 - `tabs.onActivated` is intentionally not a grouping trigger.
+
+## Validation
+
+Unit tests cover pure matching and state logic. Playwright launches the built unpacked extension in a persistent Chromium context to exercise popup rendering and real tab/group API behavior. Split View remains a manual Stable/Beta regression because Playwright does not provide a reliable Split View control surface.
 
 ## Privacy
 
