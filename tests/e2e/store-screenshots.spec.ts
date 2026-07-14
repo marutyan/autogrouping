@@ -93,32 +93,35 @@ test("generates deterministic Chrome Web Store popup candidates", async ({
     const source = document.querySelector<HTMLButtonElement>(
       'button[aria-label="Reorder Research"]',
     );
-    const targetHandleElement = document.querySelector<HTMLButtonElement>(
-      'button[aria-label="Reorder Planning"]',
-    );
-    const target = targetHandleElement?.closest<HTMLElement>(".rule-row");
-    if (!source || !target) throw new Error("Missing drag screenshot controls");
+    if (!source) throw new Error("Missing drag source control");
 
-    const dataTransfer = new DataTransfer();
     source.dispatchEvent(
       new DragEvent("dragstart", {
         bubbles: true,
         cancelable: true,
-        dataTransfer,
+        dataTransfer: new DataTransfer(),
       }),
     );
+  });
+  await expect(sourceRow).toHaveClass(/dragging/);
+
+  await page.evaluate(() => {
+    const targetHandleElement = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="Reorder Planning"]',
+    );
+    const target = targetHandleElement?.closest<HTMLElement>(".rule-row");
+    if (!target) throw new Error("Missing drag target control");
+
     const targetRect = target.getBoundingClientRect();
     target.dispatchEvent(
       new DragEvent("dragover", {
         bubbles: true,
         cancelable: true,
         clientY: targetRect.top + 2,
-        dataTransfer,
+        dataTransfer: new DataTransfer(),
       }),
     );
   });
-
-  await expect(sourceRow).toHaveClass(/dragging/);
   await expect(targetRow).toHaveClass(/drop-before/);
   await captureStoreScreenshot(page, "04-drag-reordering.png");
 
