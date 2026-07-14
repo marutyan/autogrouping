@@ -71,11 +71,7 @@ export class TabSorter {
       if (tabs.length === 0 || tabs.some(isSplitViewTab)) return;
 
       const ownedGroups = await this.#storage.getOwnedGroups();
-      const orderedGroupIds = orderedOwnedGroupIds(
-        ownedGroups.values(),
-        settings.rules,
-        windowId,
-      );
+      const orderedGroupIds = orderedOwnedGroupIds(ownedGroups.values(), settings.rules, windowId);
       if (orderedGroupIds.length === 0) return;
 
       let targetIndex = tabs.filter((tab) => tab.pinned).length;
