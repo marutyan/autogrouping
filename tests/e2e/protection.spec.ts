@@ -63,7 +63,10 @@ test("preserves ownership when a matching tab moves between external groups", as
         await chrome.tabGroups.update(firstGroupId, { title: "Claude", color: "red" });
 
         const secondGroupId = await chrome.tabs.group({ tabIds: [currentAnchorTabId] });
-        await chrome.tabGroups.update(secondGroupId, { title: "Browser Agent", color: "green" });
+        await chrome.tabGroups.update(secondGroupId, {
+          title: "Browser Agent",
+          color: "green",
+        });
 
         return { firstGroupId, secondGroupId };
       },
@@ -124,28 +127,34 @@ test("keeps explicit protection sticky until automation is restored", async ({ s
       return tab.id;
     }, matchingUrl);
 
-    const managedGroupId = await expect
+    await expect
       .poll(
         async () => {
           const [tab, state] = await Promise.all([
             serviceWorker.evaluate(async (currentTabId) => chrome.tabs.get(currentTabId), tabId),
             readTabState(serviceWorker, tabId),
           ]);
-          return state === "managed" && tab.groupId !== -1 ? tab.groupId : undefined;
+          return state === "managed" && tab.groupId !== -1;
         },
         { timeout: 8_000 },
       )
-      .not.toBeUndefined();
+      .toBe(true);
 
-    const managedTab = await serviceWorker.evaluate(async (currentTabId) => chrome.tabs.get(currentTabId), tabId);
+    const managedTab = await serviceWorker.evaluate(
+      async (currentTabId) => chrome.tabs.get(currentTabId),
+      tabId,
+    );
     if (managedTab.groupId === -1) throw new Error("Expected managed group");
 
     await serviceWorker.evaluate(
-      async (currentTabId) => chrome.runtime.sendMessage({ type: "protect-tab", tabId: currentTabId }),
+      async (currentTabId) =>
+        chrome.runtime.sendMessage({ type: "protect-tab", tabId: currentTabId }),
       tabId,
     );
 
-    await expect.poll(() => readTabState(serviceWorker, tabId), { timeout: 8_000 }).toBe("protected-user");
+    await expect
+      .poll(() => readTabState(serviceWorker, tabId), { timeout: 8_000 })
+      .toBe("protected-user");
 
     await serviceWorker.evaluate(
       async ({ currentTabId, url }) => chrome.tabs.update(currentTabId, { url }),
@@ -166,7 +175,8 @@ test("keeps explicit protection sticky until automation is restored", async ({ s
       .toEqual({ groupId: managedTab.groupId, state: "protected-user", url: unmatchedUrl });
 
     await serviceWorker.evaluate(
-      async (currentTabId) => chrome.runtime.sendMessage({ type: "return-tab", tabId: currentTabId }),
+      async (currentTabId) =>
+        chrome.runtime.sendMessage({ type: "return-tab", tabId: currentTabId }),
       tabId,
     );
 
