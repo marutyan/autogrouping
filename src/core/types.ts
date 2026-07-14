@@ -26,6 +26,7 @@ export type TabManagementState =
   | "pending"
   | "managed"
   | "protected-external"
+  | "protected-user"
   | "protected-split-view"
   | "ignored-pinned"
   | "unmatched";
@@ -65,7 +66,7 @@ export interface ExtensionSettings {
 
 export const DEFAULT_SETTINGS: ExtensionSettings = {
   enabled: true,
-  newTabGracePeriodMs: 1000,
+  newTabGracePeriodMs: 0,
   splitViewSettleDelayMs: 500,
   rules: [],
   schemaVersion: 1,
