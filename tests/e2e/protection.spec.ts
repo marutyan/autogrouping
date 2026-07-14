@@ -113,7 +113,11 @@ test("preserves ownership when a matching tab moves between external groups", as
   }
 });
 
-test("keeps explicit protection sticky until automation is restored", async ({ serviceWorker }) => {
+test("keeps explicit protection sticky until automation is restored", async ({
+  serviceWorker,
+  page,
+  extensionId,
+}) => {
   const server = await startTestServer();
   const address = server.address() as AddressInfo;
   const matchingUrl = `http://github.localhost:${address.port}/openai`;
@@ -145,7 +149,8 @@ test("keeps explicit protection sticky until automation is restored", async ({ s
     );
     if (managedTab.groupId === -1) throw new Error("Expected managed group");
 
-    await serviceWorker.evaluate(
+    await page.goto(`chrome-extension://${extensionId}/popup.html`);
+    await page.evaluate(
       async (currentTabId) =>
         chrome.runtime.sendMessage({ type: "protect-tab", tabId: currentTabId }),
       tabId,
@@ -173,7 +178,7 @@ test("keeps explicit protection sticky until automation is restored", async ({ s
       )
       .toEqual({ groupId: managedTab.groupId, state: "protected-user", url: unmatchedUrl });
 
-    await serviceWorker.evaluate(
+    await page.evaluate(
       async (currentTabId) =>
         chrome.runtime.sendMessage({ type: "return-tab", tabId: currentTabId }),
       tabId,
