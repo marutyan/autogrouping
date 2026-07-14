@@ -1,4 +1,21 @@
-# Browser E2E scenarios
+# End-to-end extension tests
 
-Chrome extensions require a persistent Chromium context and the built extension directory.
-The automated suite will cover ordinary grouping and external-group protection. Split View remains a Stable/Beta manual regression test until Playwright exposes a reliable Split View control surface.
+The Playwright suite builds and loads `.output/chrome-mv3` as an unpacked MV3 extension in the bundled Chromium channel.
+
+Covered scenarios:
+
+- popup rendering and rule-conflict feedback
+- React drag handles and removal of the separate settings page
+- external group preservation
+- automatic resumption after leaving an external group
+- removal from an AutoGrouping group after the URL no longer matches
+
+Split View remains a Stable/Beta manual regression because Playwright does not expose a reliable Split View control surface.
+
+Run locally:
+
+```bash
+pnpm build
+pnpm exec playwright install chromium
+pnpm test:e2e
+```
