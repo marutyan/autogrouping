@@ -502,9 +502,7 @@ export function PopupApp() {
                     aria-haspopup="listbox"
                     aria-expanded={colorMenuRuleId === rule.id}
                     onClick={() =>
-                      setColorMenuRuleId((current) =>
-                        current === rule.id ? undefined : rule.id,
-                      )
+                      setColorMenuRuleId((current) => (current === rule.id ? undefined : rule.id))
                     }
                   />
                   {colorMenuRuleId === rule.id && (
@@ -852,7 +850,10 @@ function describeTabStatus(
     case "protected-user":
       return { title: "Protected manually", detail: "Use Return to automation to resume." };
     case "protected-split-view":
-      return { title: "Protected by Split View", detail: "Grouping resumes after Split View ends." };
+      return {
+        title: "Protected by Split View",
+        detail: "Grouping resumes after Split View ends.",
+      };
     case "ignored-pinned":
       return { title: "Pinned and ignored", detail: "Pinned tabs remain in place." };
     case "unmatched":
