@@ -35,15 +35,8 @@ test.beforeEach(async ({ serviceWorker }) => {
     .poll(
       () =>
         serviceWorker.evaluate(async () => {
-          try {
-            const response = (await chrome.runtime.sendMessage({
-              type: "get-status",
-              tabId: -1,
-            })) as { ok?: boolean } | undefined;
-            return response?.ok === true;
-          } catch {
-            return false;
-          }
+          const data = await chrome.storage.session.get("tabStates");
+          return Array.isArray(data.tabStates);
         }),
       { timeout: 8_000 },
     )
