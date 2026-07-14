@@ -30,7 +30,10 @@ export function findRuleConflicts(rules: readonly GroupingRule[]): RuleConflict[
   return conflicts;
 }
 
-function firstConflict(firstRule: GroupingRule, secondRule: GroupingRule): RuleConflict | undefined {
+function firstConflict(
+  firstRule: GroupingRule,
+  secondRule: GroupingRule,
+): RuleConflict | undefined {
   for (const firstPattern of firstRule.patterns) {
     for (const secondPattern of secondRule.patterns) {
       if (!patternsOverlap(firstPattern, secondPattern)) continue;
