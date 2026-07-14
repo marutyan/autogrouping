@@ -19,6 +19,7 @@ export function PopupApp() {
   const [draft, setDraft] = useState<GroupingRule>();
   const [targetInput, setTargetInput] = useState("");
   const [targetScope, setTargetScope] = useState<SiteScope>("site");
+  const [editingPattern, setEditingPattern] = useState<string>();
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -31,24 +32,33 @@ export function PopupApp() {
         currentWindow: true,
       });
       setTab(activeTab);
-      if (activeTab?.id !== undefined) {
-        const response = await safeSendMessage<StatusResponse>({
-          type: "get-status",
-          tabId: activeTab.id,
-        });
-        setState(response?.state);
-      }
     })();
   }, []);
 
-  async function refreshStatus(activeTab: chrome.tabs.Tab | undefined = tab) {
-    if (activeTab?.id === undefined) return;
-    const response = await safeSendMessage<StatusResponse>({
-      type: "get-status",
-      tabId: activeTab.id,
-    });
-    setState(response?.state);
-  }
+  useEffect(() => {
+    const tabId = tab?.id;
+    if (tabId === undefined) return;
+
+    let cancelled = false;
+    const update = async () => {
+      const nextState = await fetchTabState(tabId);
+      if (!cancelled) setState(nextState);
+    };
+
+    void update();
+    const intervalId = window.setInterval(() => void update(), 500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [tab?.id]);
+
+  useEffect(() => {
+    if (!message) return;
+    const delay = message === "Saved." || message === "Deleted." ? 1800 : 4000;
+    const timeoutId = window.setTimeout(() => setMessage(""), delay);
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
 
   async function toggleEnabled() {
     const settings = await loadSettings();
@@ -69,19 +79,23 @@ export function PopupApp() {
       setMessage("Background service is restarting. Reopen the popup and try again.");
       return;
     }
-    await refreshStatus();
+    if (tab.id !== undefined) setState(await fetchTabState(tab.id));
+  }
+
+  function resetTargetEditor() {
+    setTargetInput("");
+    setTargetScope("site");
+    setEditingPattern(undefined);
   }
 
   function beginAddRule() {
     setMessage("");
-    setTargetInput("");
-    setTargetScope("site");
-    const initialPattern = defaultPattern(tab);
+    resetTargetEditor();
     setDraft({
       id: crypto.randomUUID(),
-      name: suggestedGroupName(tab),
+      name: "",
       color: "blue",
-      patterns: initialPattern ? [initialPattern] : [],
+      patterns: [],
       priority: rules.length,
       enabled: true,
       createdAt: Date.now(),
@@ -90,30 +104,62 @@ export function PopupApp() {
 
   function beginEditRule(rule: GroupingRule) {
     setMessage("");
-    setTargetInput("");
-    setTargetScope("site");
+    resetTargetEditor();
     setDraft({ ...rule, patterns: [...rule.patterns] });
   }
 
-  function addTarget(value = targetInput, scope = targetScope) {
+  function beginEditTarget(rule: GroupingRule, pattern: string) {
+    setMessage("");
+    setDraft({ ...rule, patterns: [...rule.patterns] });
+    startEditingTarget(pattern);
+  }
+
+  function startEditingTarget(pattern: string) {
+    if (!isSimplePattern(pattern)) {
+      setEditingPattern(undefined);
+      setTargetInput("");
+      setTargetScope("site");
+      setMessage("This custom wildcard can be edited under Advanced URL patterns.");
+      return;
+    }
+    const scope = inferScope(pattern);
+    setEditingPattern(pattern);
+    setTargetInput(patternToInput(pattern, scope));
+    setTargetScope(scope);
+    setMessage("");
+  }
+
+  function saveTarget(
+    value = targetInput,
+    scope = targetScope,
+    replacedPattern = editingPattern,
+  ) {
     if (!draft) return;
     const pattern = patternFromInput(value, scope);
     if (!pattern) {
       setMessage("Enter a valid URL or domain, such as example.com.");
       return;
     }
-    if (draft.patterns.includes(pattern)) {
+
+    const otherPatterns = replacedPattern
+      ? draft.patterns.filter((item) => item !== replacedPattern)
+      : draft.patterns;
+    if (otherPatterns.includes(pattern)) {
       setMessage("That target is already included.");
       return;
     }
-    setDraft({ ...draft, patterns: [...draft.patterns, pattern] });
-    setTargetInput("");
+
+    const nextPatterns = replacedPattern
+      ? draft.patterns.map((item) => (item === replacedPattern ? pattern : item))
+      : [...draft.patterns, pattern];
+    setDraft({ ...draft, patterns: nextPatterns });
+    resetTargetEditor();
     setMessage("");
   }
 
   function addCurrentSite() {
     if (!tab?.url) return;
-    addTarget(tab.url, "site");
+    saveTarget(tab.url, "site", undefined);
   }
 
   function removeTarget(pattern: string) {
@@ -122,6 +168,7 @@ export function PopupApp() {
       ...draft,
       patterns: draft.patterns.filter((item) => item !== pattern),
     });
+    if (editingPattern === pattern) resetTargetEditor();
   }
 
   async function persistDraft() {
@@ -139,6 +186,7 @@ export function PopupApp() {
     await saveSettings(validation.value);
     setRules(validation.value.rules);
     setDraft(undefined);
+    resetTargetEditor();
     setMessage("Saved.");
     if (tab?.windowId !== undefined) {
       await safeSendMessage({
@@ -157,6 +205,7 @@ export function PopupApp() {
     await saveSettings({ ...settings, rules: nextRules });
     setRules(nextRules);
     setDraft(undefined);
+    resetTargetEditor();
     setMessage("Deleted.");
     if (tab?.windowId !== undefined) {
       await safeSendMessage({
@@ -213,7 +262,7 @@ export function PopupApp() {
 
           {rules.length === 0 && (
             <button type="button" className="empty-rule" onClick={beginAddRule}>
-              No groups yet. Add the current site as your first group.
+              No groups yet. Add your first group.
             </button>
           )}
 
@@ -223,20 +272,32 @@ export function PopupApp() {
                 <strong>{rule.name}</strong>
                 {!rule.enabled && <small>Paused</small>}
               </button>
-              <button type="button" className="targets-cell" onClick={() => beginEditRule(rule)}>
+              <div className="targets-cell">
                 {rule.patterns.slice(0, 3).map((pattern) => {
                   const target = describePattern(pattern);
                   return (
-                    <span className="target-chip" title={pattern} key={pattern}>
+                    <button
+                      type="button"
+                      className="target-chip"
+                      title={pattern}
+                      key={pattern}
+                      onClick={() => beginEditTarget(rule, pattern)}
+                    >
                       <strong>{target.label}</strong>
                       <small>{target.scope}</small>
-                    </span>
+                    </button>
                   );
                 })}
                 {rule.patterns.length > 3 && (
-                  <span className="target-overflow">+{rule.patterns.length - 3}</span>
+                  <button
+                    type="button"
+                    className="target-overflow"
+                    onClick={() => beginEditRule(rule)}
+                  >
+                    +{rule.patterns.length - 3}
+                  </button>
                 )}
-              </button>
+              </div>
               <span
                 className="table-color"
                 style={{ backgroundColor: GROUP_COLOR_HEX[rule.color] }}
@@ -261,7 +322,14 @@ export function PopupApp() {
         <section className="editor">
           <div className="editor-heading">
             <h2>{rules.some((rule) => rule.id === draft.id) ? "Edit group" : "Add group"}</h2>
-            <button type="button" className="icon-button" onClick={() => setDraft(undefined)}>
+            <button
+              type="button"
+              className="icon-button"
+              onClick={() => {
+                setDraft(undefined);
+                resetTargetEditor();
+              }}
+            >
               ×
             </button>
           </div>
@@ -270,6 +338,7 @@ export function PopupApp() {
             <span className="field-label">Group name</span>
             <input
               value={draft.name}
+              placeholder="e.g. Research"
               onChange={(event: ChangeEvent<HTMLInputElement>) =>
                 setDraft({ ...draft, name: event.target.value })
               }
@@ -291,13 +360,24 @@ export function PopupApp() {
               {draft.patterns.map((pattern) => {
                 const target = describePattern(pattern);
                 return (
-                  <span className="editable-target" key={pattern} title={pattern}>
-                    <span className="editable-target-copy">
-                      <strong>{target.label}</strong>
-                      <small>{target.scope}</small>
-                    </span>
+                  <span
+                    className={
+                      editingPattern === pattern ? "editable-target editing" : "editable-target"
+                    }
+                    key={pattern}
+                    title={pattern}
+                  >
                     <button
                       type="button"
+                      className="editable-target-main"
+                      onClick={() => startEditingTarget(pattern)}
+                    >
+                      <strong>{target.label}</strong>
+                      <small>{target.scope}</small>
+                    </button>
+                    <button
+                      type="button"
+                      className="remove-target"
                       aria-label={`Remove ${target.label}`}
                       onClick={() => removeTarget(pattern)}
                     >
@@ -318,7 +398,7 @@ export function PopupApp() {
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault();
-                    addTarget();
+                    saveTarget();
                   }
                 }}
               />
@@ -333,10 +413,15 @@ export function PopupApp() {
                 <option value="path">This path</option>
                 <option value="page">This page</option>
               </select>
-              <button type="button" onClick={() => addTarget()}>
-                Add
+              <button type="button" onClick={() => saveTarget()}>
+                {editingPattern ? "Update" : "Add"}
               </button>
             </div>
+            {editingPattern && (
+              <button type="button" className="cancel-target-edit" onClick={resetTargetEditor}>
+                Cancel target edit
+              </button>
+            )}
           </div>
 
           <fieldset>
@@ -357,20 +442,24 @@ export function PopupApp() {
           </fieldset>
 
           <details className="advanced-patterns">
-            <summary>Advanced URL patterns</summary>
-            <p>One wildcard pattern per line. Most users do not need to edit these directly.</p>
+            <summary>Advanced matching patterns</summary>
+            <p>
+              Use this only for wildcards inside a hostname or path, such as *.notion.site/* or
+              github.com/*/issues/*.
+            </p>
             <textarea
               rows={3}
               value={draft.patterns.join("\n")}
-              onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
+              onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
+                resetTargetEditor();
                 setDraft({
                   ...draft,
                   patterns: event.target.value
                     .split("\n")
                     .map((value) => value.trim())
                     .filter(Boolean),
-                })
-              }
+                });
+              }}
             />
           </details>
 
@@ -391,7 +480,13 @@ export function PopupApp() {
                 Delete
               </button>
             )}
-            <button type="button" onClick={() => setDraft(undefined)}>
+            <button
+              type="button"
+              onClick={() => {
+                setDraft(undefined);
+                resetTargetEditor();
+              }}
+            >
               Cancel
             </button>
             <button type="button" className="primary" onClick={() => void persistDraft()}>
@@ -437,6 +532,11 @@ async function safeSendMessage<T = unknown>(message: unknown): Promise<T | undef
   }
 }
 
+async function fetchTabState(tabId: number): Promise<TabStateRecord | undefined> {
+  const response = await safeSendMessage<StatusResponse>({ type: "get-status", tabId });
+  return response?.state;
+}
+
 function patternFromInput(value: string, scope: SiteScope): string | undefined {
   const trimmed = value.trim();
   if (!trimmed) return undefined;
@@ -452,18 +552,25 @@ function patternFromInput(value: string, scope: SiteScope): string | undefined {
   }
 }
 
-function defaultPattern(tab: chrome.tabs.Tab | undefined): string {
-  return tab?.url ? (patternFromInput(tab.url, "site") ?? "") : "";
+function isSimplePattern(pattern: string): boolean {
+  const normalized = pattern.replace(/^\*:\/\//, "").replace(/^https?:\/\//, "");
+  const hostname = normalized.split("/")[0] ?? "";
+  const path = normalized.slice(hostname.length);
+  return !hostname.includes("*") && (!path.includes("*") || path.endsWith("*"));
 }
 
-function suggestedGroupName(tab: chrome.tabs.Tab | undefined): string {
-  if (!tab?.url) return "New group";
-  try {
-    const hostname = new URL(tab.url).hostname.replace(/^www\./, "");
-    return hostname.split(".")[0] || "New group";
-  } catch {
-    return "New group";
-  }
+function inferScope(pattern: string): SiteScope {
+  const normalized = pattern.replace(/^\*:\/\//, "").replace(/^https?:\/\//, "");
+  if (normalized.endsWith("/*")) return "site";
+  if (normalized.endsWith("*")) return "path";
+  return "page";
+}
+
+function patternToInput(pattern: string, scope: SiteScope): string {
+  const normalized = pattern.replace(/^\*:\/\//, "").replace(/^https?:\/\//, "");
+  if (scope === "site") return normalized.replace(/\/\*$/, "");
+  if (scope === "path") return `https://${normalized.replace(/\*$/, "")}`;
+  return `https://${normalized}`;
 }
 
 function describePattern(pattern: string): { label: string; scope: string } {
@@ -495,7 +602,8 @@ function formatState(state: TabStateRecord["state"] | undefined): string {
       return "Pinned and ignored";
     case "unmatched":
       return "No matching rule";
+    case "pending":
     default:
-      return "Waiting";
+      return "Checking…";
   }
 }
