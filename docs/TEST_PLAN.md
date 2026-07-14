@@ -1,5 +1,16 @@
 # Test plan
 
+## Automated coverage
+
+The Playwright suite builds and loads the unpacked extension and verifies:
+
+- popup rendering, match-order guidance, conflict warnings, and React drag handles
+- preservation of user, Claude, and other externally owned groups
+- automatic resumption after a tab leaves an external group
+- automatic removal from an AutoGrouping group after the URL no longer matches
+
+Unit tests cover matching, state transitions, mutation tracking, scheduling, group ordering, and rule-conflict detection.
+
 ## Required browser matrix
 
 - Chrome 120: ordinary grouping and feature-detection fallback.
@@ -8,19 +19,17 @@
 
 ## External group regression
 
-1. Create a matching tab.
-2. Move it into a manually created group before the grace period ends.
-3. Verify AutoGrouping does not move it.
-4. Remove it from the external group.
-5. Verify it remains protected.
-6. Use “Return this tab to AutoGrouping”.
-7. Verify the matching rule is applied.
+1. Create a matching tab inside a manually or agent-created group.
+2. Verify AutoGrouping does not move it while it remains in that group.
+3. Remove it from the external group.
+4. Verify the matching AutoGrouping rule is applied automatically.
+5. Move it into another external group and confirm that ownership is preserved again.
 
 ## Browser-agent regression
 
-1. Ask the connected browser agent to open a page matching an AutoGrouping rule.
-2. Allow the agent to create or use its own group.
-3. Verify the tab remains in the agent-owned group and remains controllable by the agent.
+1. Ask the connected browser agent to create a group and open a matching page inside it.
+2. Verify the tab remains in the agent-owned group and remains controllable by the agent.
+3. Remove the tab from that group and verify normal automatic grouping resumes.
 4. Verify no repeating group-update logs or CPU spike occur.
 
 ## Split View regression
