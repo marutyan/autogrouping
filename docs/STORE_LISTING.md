@@ -42,7 +42,7 @@ Stores user-created rules, colors, rule order, extension settings, and limited o
 
 ### `tabs`
 
-Reads tab URLs and grouping state so rules can be evaluated, and moves or ungroups tabs when applying those rules. AutoGrouping does not read page contents.
+Reads tab URLs and grouping state so rules can be evaluated, and moves or ungroups tabs when applying those rules. Observed tab URLs are not stored as browsing history or transmitted to the developer. AutoGrouping does not read page contents.
 
 ### `tabGroups`
 
@@ -52,25 +52,36 @@ Creates, updates, colors, and reorders Chrome tab groups owned by AutoGrouping.
 
 Provides manual tab actions, including protecting a tab, returning it to automation, and re-evaluating the current window.
 
-## Privacy practices draft
+AutoGrouping requests no host permissions, optional permissions, or access to website contents.
 
-Recommended Chrome Web Store answers based on the current implementation:
+## Privacy practices dashboard worksheet
 
-- **Personally identifiable information:** Not collected
-- **Health information:** Not collected
-- **Financial and payment information:** Not collected
-- **Authentication information:** Not collected
-- **Personal communications:** Not collected
-- **Location:** Not collected
-- **Web history:** Not collected or transmitted; the current tab URL is processed locally only to apply user-defined rules
-- **User activity:** Not collected or transmitted
-- **Website content:** Not collected
-- **Data sale or transfer:** None
-- **Advertising:** None
-- **Analytics or telemetry:** None
-- **Remote code:** None
+Use the current Chrome Web Store dashboard labels at submission time, but keep the following implementation facts consistent across the dashboard, privacy policy, listing, and source code.
 
-The final submission should be checked against the current Chrome Web Store questionnaire wording before publication.
+### User data categories
+
+- **Web history / web browsing activity:** Handled locally. AutoGrouping reads the URL of an open tab only to evaluate user-defined grouping rules. Observed tab URLs are not retained as browsing history, transmitted to the developer, or shared with another party.
+- **User-provided configuration:** User-created group names, colors, order, and URL patterns are stored in Chrome extension storage. Chrome may synchronize these settings through the user's signed-in Chrome profile. The developer does not receive them.
+- **Personally identifiable information:** Not handled.
+- **Health information:** Not handled.
+- **Financial and payment information:** Not handled.
+- **Authentication information:** Not handled.
+- **Personal communications:** Not handled.
+- **Location:** Not handled.
+- **User activity such as clicks, keystrokes, or scrolling:** Not handled.
+- **Website content:** Not handled. AutoGrouping does not inspect page text, forms, cookies, messages, or screenshots.
+
+### Use and transfer declarations
+
+- **Single-purpose use:** Tab URLs and tab state are used only for the disclosed tab-grouping feature.
+- **Data sale or transfer:** None.
+- **Advertising or profiling:** None.
+- **Analytics or telemetry:** None.
+- **Human access to user data:** None; AutoGrouping has no backend or developer-accessible data store.
+- **Remote code:** None.
+- **Limited Use certification:** AutoGrouping's Chrome API data use is limited to its disclosed user-facing functionality and complies with the Chrome Web Store Limited Use requirements.
+
+Do not answer that web browsing activity is absent merely because processing is local. Chrome Web Store policy requires disclosure of local handling as well as transmission. Re-check the final dashboard wording and compare every answer against `PRIVACY.md` before publication.
 
 ## Screenshot plan
 
