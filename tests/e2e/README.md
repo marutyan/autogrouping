@@ -10,7 +10,7 @@ Covered scenarios:
 - automatic resumption after leaving an external group, including one-tab group removal
 - removal from an AutoGrouping group after the URL no longer matches
 
-The grouping scenario uses a local HTTP server and mapped `.localhost` hostnames, so it does not depend on public network access.
+The grouping scenario uses a local HTTP server and mapped `.localhost` hostnames, so it does not depend on public network access. Test rules are written only after the background controller confirms that its runtime listener is ready.
 
 Split View remains a Stable/Beta manual regression because Playwright does not expose a reliable Split View control surface.
 
