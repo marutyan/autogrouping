@@ -7,8 +7,10 @@ Covered scenarios:
 - popup rendering and rule-conflict feedback
 - React drag handles and removal of the separate settings page
 - external group preservation
-- automatic resumption after leaving an external group
+- automatic resumption after leaving an external group, including one-tab group removal
 - removal from an AutoGrouping group after the URL no longer matches
+
+The grouping scenario uses a local HTTP server and mapped `.localhost` hostnames, so it does not depend on public network access.
 
 Split View remains a Stable/Beta manual regression because Playwright does not expose a reliable Split View control surface.
 
