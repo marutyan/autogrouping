@@ -12,12 +12,7 @@ const rule = (id: string, priority: number, enabled = true): GroupingRule => ({
   createdAt: priority,
 });
 
-const group = (
-  groupId: number,
-  ruleId: string,
-  windowId = 1,
-  createdAt = groupId,
-): OwnedGroup => ({
+const group = (groupId: number, ruleId: string, windowId = 1, createdAt = groupId): OwnedGroup => ({
   windowId,
   groupId,
   ruleId,
