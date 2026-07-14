@@ -31,9 +31,29 @@ const settings = {
 };
 
 test.beforeEach(async ({ serviceWorker }) => {
+  await expect
+    .poll(
+      () =>
+        serviceWorker.evaluate(async () => {
+          try {
+            const response = (await chrome.runtime.sendMessage({
+              type: "get-status",
+              tabId: -1,
+            })) as { ok?: boolean } | undefined;
+            return response?.ok === true;
+          } catch {
+            return false;
+          }
+        }),
+      { timeout: 8_000 },
+    )
+    .toBe(true);
+
   await serviceWorker.evaluate(async (nextSettings) => {
     await chrome.storage.sync.set({ settings: nextSettings });
   }, settings);
+
+  await new Promise((resolve) => setTimeout(resolve, 150));
 });
 
 test("popup shows rule reasons, conflicts, and no separate settings page", async ({
