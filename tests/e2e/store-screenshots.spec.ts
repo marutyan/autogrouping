@@ -84,6 +84,64 @@ test("generates deterministic Chrome Web Store popup candidates", async ({
 
   await captureStoreScreenshot(page, "01-main-popup.png");
 
+  const sourceHandle = page.getByRole("button", { name: "Reorder Research", exact: true });
+  const targetHandle = page.getByRole("button", { name: "Reorder Planning", exact: true });
+  const sourceRow = page.locator(".rule-row").filter({ has: sourceHandle });
+  const targetRow = page.locator(".rule-row").filter({ has: targetHandle });
+
+  await page.evaluate(() => {
+    const source = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="Reorder Research"]',
+    );
+    if (!source) throw new Error("Missing drag source control");
+
+    source.dispatchEvent(
+      new DragEvent("dragstart", {
+        bubbles: true,
+        cancelable: true,
+        dataTransfer: new DataTransfer(),
+      }),
+    );
+  });
+  await expect(sourceRow).toHaveClass(/dragging/);
+
+  await page.evaluate(() => {
+    const targetHandleElement = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="Reorder Planning"]',
+    );
+    const target = targetHandleElement?.closest<HTMLElement>(".rule-row");
+    if (!target) throw new Error("Missing drag target control");
+
+    const targetRect = target.getBoundingClientRect();
+    target.dispatchEvent(
+      new DragEvent("dragover", {
+        bubbles: true,
+        cancelable: true,
+        clientY: targetRect.top + 2,
+        dataTransfer: new DataTransfer(),
+      }),
+    );
+  });
+  await expect(targetRow).toHaveClass(/drop-before/);
+  await captureStoreScreenshot(page, "04-drag-reordering.png");
+
+  await page.evaluate(() => {
+    const source = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="Reorder Research"]',
+    );
+    if (!source) throw new Error("Missing drag source control");
+    source.dispatchEvent(new DragEvent("dragend", { bubbles: true, cancelable: true }));
+  });
+  await expect(sourceRow).not.toHaveClass(/dragging/);
+  await expect(targetRow).not.toHaveClass(/drop-before/);
+
+  const persistedOrder = await serviceWorker.evaluate(async () => {
+    const result = await chrome.storage.sync.get("settings");
+    const stored = result.settings as { rules?: Array<{ id?: string }> } | undefined;
+    return stored?.rules?.map((rule) => rule.id) ?? [];
+  });
+  expect(persistedOrder).toEqual(["research", "engineering", "planning"]);
+
   await page.getByRole("button", { name: "Edit Research" }).click();
   const editor = page.locator(".editor");
   await expect(editor.getByRole("heading", { name: "Edit group" })).toBeVisible();
