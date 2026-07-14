@@ -17,6 +17,8 @@ Rule order has two effects:
 1. Matching priority is evaluated from top to bottom.
 2. AutoGrouping-owned Chrome groups are sorted into the same order after pinned tabs.
 
+Conflict feedback compares representative URLs for keyword, hostname, and wildcard patterns. It is advisory; the deterministic top-to-bottom matcher remains the source of truth.
+
 ## Storage
 
 - `storage.sync`: user settings and grouping rules.
