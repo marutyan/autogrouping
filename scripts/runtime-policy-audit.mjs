@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { extname, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -47,7 +47,8 @@ export function collectRuntimeSourceFiles(rootDirectory = process.cwd()) {
 }
 
 export function auditRuntimeSources(rootDirectory = process.cwd()) {
-  const violations = collectRuntimeSourceFiles(rootDirectory).flatMap((absolutePath) => {
+  const files = collectRuntimeSourceFiles(rootDirectory);
+  const violations = files.flatMap((absolutePath) => {
     const filePath = relative(rootDirectory, absolutePath);
     return findRuntimePolicyViolations(readFileSync(absolutePath, "utf8"), filePath);
   });
@@ -57,7 +58,7 @@ export function auditRuntimeSources(rootDirectory = process.cwd()) {
       .join("\n");
     throw new Error(`Runtime policy audit failed:\n${details}`);
   }
-  return collectRuntimeSourceFiles(rootDirectory).map((filePath) => relative(rootDirectory, filePath));
+  return files.map((filePath) => relative(rootDirectory, filePath));
 }
 
 function collectDirectory(directory, files) {
