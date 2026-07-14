@@ -36,6 +36,7 @@ jobs:
             .output/*.zip
             SHA256SUMS
           if-no-files-found: error
+          include-hidden-files: true
       - name: Publish GitHub Release
         if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
