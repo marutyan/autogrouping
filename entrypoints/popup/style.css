@@ -437,7 +437,9 @@ textarea {
 
 .inline-color-option.selected {
   border-color: #fff;
-  box-shadow: inset 0 0 0 1px #202124, 0 0 0 1px #202124;
+  box-shadow:
+    inset 0 0 0 1px #202124,
+    0 0 0 1px #202124;
 }
 
 .edit-button {
