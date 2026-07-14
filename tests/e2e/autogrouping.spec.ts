@@ -81,7 +81,7 @@ test("preserves external groups, resumes after exit, and removes unmatched tabs"
           async (currentTabId) => chrome.tabs.get(currentTabId),
           tabId,
         );
-        if (tab.groupId === chrome.tabGroups.TAB_GROUP_ID_NONE) return undefined;
+        if (tab.groupId === -1) return undefined;
         return serviceWorker.evaluate(
           async (groupId) => chrome.tabGroups.get(groupId),
           tab.groupId,
