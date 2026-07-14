@@ -1,12 +1,31 @@
-import { useEffect, useState, type ChangeEvent } from "react";
-import type { GroupingRule, TabStateRecord } from "../../src/core/types";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+  type DragEvent,
+  type KeyboardEvent,
+} from "react";
+import { findRuleConflicts } from "../../src/core/rule-conflicts";
+import { findMatchingRuleDetail } from "../../src/core/rule-matcher";
 import { validateSettings } from "../../src/core/rule-validation";
+import type { GroupColor, GroupingRule, TabStateRecord } from "../../src/core/types";
 import { GROUP_COLORS, GROUP_COLOR_HEX } from "../../src/ui/group-colors";
 import { loadSettings, saveSettings } from "../../src/ui/storage";
 
 interface StatusResponse {
   ok: boolean;
   state?: TabStateRecord;
+}
+
+interface UndoAction {
+  label: string;
+  previousRules: GroupingRule[];
+}
+
+interface DropTarget {
+  ruleId: string;
+  position: "before" | "after";
 }
 
 type SiteScope = "site" | "path" | "page";
@@ -21,16 +40,17 @@ export function PopupApp() {
   const [targetScope, setTargetScope] = useState<SiteScope>("site");
   const [editingPattern, setEditingPattern] = useState<string>();
   const [message, setMessage] = useState("");
+  const [undoAction, setUndoAction] = useState<UndoAction>();
+  const [colorMenuRuleId, setColorMenuRuleId] = useState<string>();
+  const [draggedRuleId, setDraggedRuleId] = useState<string>();
+  const [dropTarget, setDropTarget] = useState<DropTarget>();
 
   useEffect(() => {
     void (async () => {
       const settings = await loadSettings();
       setEnabled(settings.enabled);
       setRules(settings.rules);
-      const [activeTab] = await chrome.tabs.query({
-        active: true,
-        currentWindow: true,
-      });
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
       setTab(activeTab);
     })();
   }, []);
@@ -41,8 +61,13 @@ export function PopupApp() {
 
     let cancelled = false;
     const update = async () => {
-      const nextState = await fetchTabState(tabId);
-      if (!cancelled) setState(nextState);
+      const [nextState, currentTab] = await Promise.all([
+        fetchTabState(tabId),
+        chrome.tabs.get(tabId).catch(() => undefined),
+      ]);
+      if (cancelled) return;
+      setState(nextState);
+      if (currentTab) setTab(currentTab);
     };
 
     void update();
@@ -55,17 +80,83 @@ export function PopupApp() {
 
   useEffect(() => {
     if (!message) return;
-    const delay = message === "Saved." || message === "Deleted." ? 1800 : 4000;
-    const timeoutId = window.setTimeout(() => setMessage(""), delay);
+    const delay = undoAction
+      ? 6000
+      : message === "Saved." || message === "Color updated."
+        ? 1800
+        : 4000;
+    const timeoutId = window.setTimeout(() => {
+      setMessage("");
+      setUndoAction(undefined);
+    }, delay);
     return () => window.clearTimeout(timeoutId);
-  }, [message]);
+  }, [message, undoAction]);
+
+  useEffect(() => {
+    if (!colorMenuRuleId) return;
+
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest(".color-cell")) return;
+      setColorMenuRuleId(undefined);
+    };
+    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") setColorMenuRuleId(undefined);
+    };
+
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [colorMenuRuleId]);
+
+  const conflicts = useMemo(() => findRuleConflicts(rules), [rules]);
+  const conflictNamesByRule = useMemo(() => {
+    const names = new Map<string, Set<string>>();
+    const ruleById = new Map(rules.map((rule) => [rule.id, rule]));
+    for (const conflict of conflicts) {
+      const firstName = ruleById.get(conflict.firstRuleId)?.name;
+      const secondName = ruleById.get(conflict.secondRuleId)?.name;
+      if (firstName && secondName) {
+        addMapValue(names, conflict.firstRuleId, secondName);
+        addMapValue(names, conflict.secondRuleId, firstName);
+      }
+    }
+    return names;
+  }, [conflicts, rules]);
+
+  const draftConflictNames = useMemo(() => {
+    if (!draft) return [];
+    const candidateRules = normalizePriorities(
+      rules.some((rule) => rule.id === draft.id)
+        ? rules.map((rule) => (rule.id === draft.id ? draft : rule))
+        : [...rules, draft],
+    );
+    const names = new Set<string>();
+    const ruleById = new Map(candidateRules.map((rule) => [rule.id, rule]));
+    for (const conflict of findRuleConflicts(candidateRules)) {
+      if (conflict.firstRuleId === draft.id) {
+        const name = ruleById.get(conflict.secondRuleId)?.name;
+        if (name) names.add(name);
+      }
+      if (conflict.secondRuleId === draft.id) {
+        const name = ruleById.get(conflict.firstRuleId)?.name;
+        if (name) names.add(name);
+      }
+    }
+    return [...names];
+  }, [draft, rules]);
+
+  const tabStatus = useMemo(() => describeTabStatus(state, tab, rules), [state, tab, rules]);
 
   async function toggleEnabled() {
     const settings = await loadSettings();
     const next = !enabled;
     await saveSettings({ ...settings, enabled: next });
     setEnabled(next);
-    setMessage(next ? "Automatic grouping resumed." : "Automatic grouping paused.");
+    showMessage(next ? "Automatic grouping resumed." : "Automatic grouping paused.");
   }
 
   async function send(type: "return-tab" | "protect-tab" | "reevaluate-window") {
@@ -76,10 +167,15 @@ export function PopupApp() {
       windowId: tab.windowId,
     });
     if (response === undefined) {
-      setMessage("Background service is restarting. Reopen the popup and try again.");
+      showMessage("Background service is restarting. Reopen the popup and try again.");
       return;
     }
     if (tab.id !== undefined) setState(await fetchTabState(tab.id));
+  }
+
+  function showMessage(nextMessage: string, nextUndo?: UndoAction) {
+    setMessage(nextMessage);
+    setUndoAction(nextUndo);
   }
 
   function resetTargetEditor() {
@@ -89,7 +185,7 @@ export function PopupApp() {
   }
 
   function beginAddRule() {
-    setMessage("");
+    showMessage("");
     resetTargetEditor();
     setDraft({
       id: crypto.randomUUID(),
@@ -103,13 +199,13 @@ export function PopupApp() {
   }
 
   function beginEditRule(rule: GroupingRule) {
-    setMessage("");
+    showMessage("");
     resetTargetEditor();
     setDraft({ ...rule, patterns: [...rule.patterns] });
   }
 
   function beginEditTarget(rule: GroupingRule, pattern: string) {
-    setMessage("");
+    showMessage("");
     setDraft({ ...rule, patterns: [...rule.patterns] });
     startEditingTarget(pattern);
   }
@@ -119,21 +215,21 @@ export function PopupApp() {
       setEditingPattern(undefined);
       setTargetInput("");
       setTargetScope("site");
-      setMessage("This custom wildcard can be edited under Advanced URL patterns.");
+      showMessage("This custom wildcard can be edited under Advanced matching patterns.");
       return;
     }
     const scope = inferScope(pattern);
     setEditingPattern(pattern);
     setTargetInput(patternToInput(pattern, scope));
     setTargetScope(scope);
-    setMessage("");
+    showMessage("");
   }
 
   function saveTarget(value = targetInput, scope = targetScope, replacedPattern = editingPattern) {
     if (!draft) return;
     const pattern = patternFromInput(value, scope);
     if (!pattern) {
-      setMessage("Enter a valid URL or domain, such as example.com.");
+      showMessage("Enter a valid URL, domain, or site keyword such as github.");
       return;
     }
 
@@ -141,7 +237,7 @@ export function PopupApp() {
       ? draft.patterns.filter((item) => item !== replacedPattern)
       : draft.patterns;
     if (otherPatterns.includes(pattern)) {
-      setMessage("That target is already included.");
+      showMessage("That target is already included.");
       return;
     }
 
@@ -150,7 +246,7 @@ export function PopupApp() {
       : [...draft.patterns, pattern];
     setDraft({ ...draft, patterns: nextPatterns });
     resetTargetEditor();
-    setMessage("");
+    showMessage("");
   }
 
   function addCurrentSite() {
@@ -160,55 +256,122 @@ export function PopupApp() {
 
   function removeTarget(pattern: string) {
     if (!draft) return;
-    setDraft({
-      ...draft,
-      patterns: draft.patterns.filter((item) => item !== pattern),
-    });
+    setDraft({ ...draft, patterns: draft.patterns.filter((item) => item !== pattern) });
     if (editingPattern === pattern) resetTargetEditor();
   }
 
   async function persistDraft() {
     if (!draft) return;
-    const settings = await loadSettings();
-    const exists = rules.some((rule) => rule.id === draft.id);
-    const nextRules = (
-      exists ? rules.map((rule) => (rule.id === draft.id ? draft : rule)) : [...rules, draft]
-    ).map((rule, index) => ({ ...rule, priority: index }));
-    const validation = validateSettings({ ...settings, rules: nextRules });
-    if (!validation.value || validation.errors.length > 0) {
-      setMessage(validation.errors.join(" ") || "Rule is invalid.");
-      return;
-    }
-    await saveSettings(validation.value);
-    setRules(validation.value.rules);
+    const nextRules = normalizePriorities(
+      rules.some((rule) => rule.id === draft.id)
+        ? rules.map((rule) => (rule.id === draft.id ? draft : rule))
+        : [...rules, draft],
+    );
+    if (!(await persistRules(nextRules))) return;
+
     setDraft(undefined);
     resetTargetEditor();
-    setMessage("Saved.");
-    if (tab?.windowId !== undefined) {
-      await safeSendMessage({
-        type: "reevaluate-window",
-        windowId: tab.windowId,
-      });
-    }
+    showMessage("Saved.");
   }
 
   async function deleteDraft() {
     if (!draft) return;
-    const settings = await loadSettings();
-    const nextRules = rules
-      .filter((rule) => rule.id !== draft.id)
-      .map((rule, index) => ({ ...rule, priority: index }));
-    await saveSettings({ ...settings, rules: nextRules });
-    setRules(nextRules);
+    const previousRules = rules.map(cloneRule);
+    const nextRules = normalizePriorities(rules.filter((rule) => rule.id !== draft.id));
+    if (!(await persistRules(nextRules))) return;
+
     setDraft(undefined);
     resetTargetEditor();
-    setMessage("Deleted.");
-    if (tab?.windowId !== undefined) {
-      await safeSendMessage({
-        type: "reevaluate-window",
-        windowId: tab.windowId,
-      });
+    showMessage("Group deleted.", {
+      label: "Undo group deletion",
+      previousRules,
+    });
+  }
+
+  async function updateRuleColor(ruleId: string, color: GroupColor) {
+    const nextRules = rules.map((rule) => (rule.id === ruleId ? { ...rule, color } : rule));
+    if (!(await persistRules(nextRules))) return;
+    setColorMenuRuleId(undefined);
+    showMessage("Color updated.");
+  }
+
+  async function reorderRule(
+    sourceRuleId: string,
+    targetRuleId: string,
+    position: "before" | "after",
+  ) {
+    const nextRules = moveRule(rules, sourceRuleId, targetRuleId, position);
+    if (!nextRules) return;
+    const previousRules = rules.map(cloneRule);
+    if (!(await persistRules(nextRules))) return;
+    showMessage("Group moved.", { label: "Undo group move", previousRules });
+  }
+
+  async function moveRuleByKeyboard(ruleId: string, direction: -1 | 1) {
+    const sourceIndex = rules.findIndex((rule) => rule.id === ruleId);
+    const target = rules[sourceIndex + direction];
+    if (sourceIndex < 0 || !target) return;
+    await reorderRule(ruleId, target.id, direction < 0 ? "before" : "after");
+  }
+
+  async function undoLastChange() {
+    if (!undoAction) return;
+    const previousRules = undoAction.previousRules.map(cloneRule);
+    if (!(await persistRules(previousRules))) return;
+    showMessage("Change undone.");
+  }
+
+  async function persistRules(nextRules: GroupingRule[]): Promise<boolean> {
+    const settings = await loadSettings();
+    const normalizedRules = normalizePriorities(nextRules);
+    const validation = validateSettings({ ...settings, rules: normalizedRules });
+    if (!validation.value || validation.errors.length > 0) {
+      showMessage(validation.errors.join(" ") || "Rule is invalid.");
+      return false;
     }
+
+    await saveSettings(validation.value);
+    setRules(validation.value.rules);
+    if (tab?.windowId !== undefined) {
+      await safeSendMessage({ type: "reevaluate-window", windowId: tab.windowId });
+    }
+    return true;
+  }
+
+  function handleDragStart(event: DragEvent<HTMLButtonElement>, ruleId: string) {
+    setDraggedRuleId(ruleId);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", ruleId);
+  }
+
+  function handleDragOver(event: DragEvent<HTMLDivElement>, ruleId: string) {
+    if (!draggedRuleId || draggedRuleId === ruleId) return;
+    event.preventDefault();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const position = event.clientY < rect.top + rect.height / 2 ? "before" : "after";
+    setDropTarget({ ruleId, position });
+    event.dataTransfer.dropEffect = "move";
+  }
+
+  function handleDrop(event: DragEvent<HTMLDivElement>, targetRuleId: string) {
+    event.preventDefault();
+    if (draggedRuleId && draggedRuleId !== targetRuleId) {
+      const position = dropTarget?.ruleId === targetRuleId ? dropTarget.position : "before";
+      void reorderRule(draggedRuleId, targetRuleId, position);
+    }
+    setDraggedRuleId(undefined);
+    setDropTarget(undefined);
+  }
+
+  function handleDragEnd() {
+    setDraggedRuleId(undefined);
+    setDropTarget(undefined);
+  }
+
+  function handleReorderKeyDown(event: KeyboardEvent<HTMLButtonElement>, ruleId: string) {
+    if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
+    event.preventDefault();
+    void moveRuleByKeyboard(ruleId, event.key === "ArrowUp" ? -1 : 1);
   }
 
   return (
@@ -234,7 +397,10 @@ export function PopupApp() {
 
       <div className="current-status">
         <span>Current tab</span>
-        <strong>{formatState(state?.state)}</strong>
+        <span className="current-status-copy">
+          <strong>{tabStatus.title}</strong>
+          {tabStatus.detail && <small>{tabStatus.detail}</small>}
+        </span>
       </div>
 
       <section className="groups-section">
@@ -247,9 +413,11 @@ export function PopupApp() {
             + Add group
           </button>
         </div>
+        <p className="order-hint">Groups match from top to bottom and appear in this order.</p>
 
         <div className="group-table">
           <div className="table-header">
+            <span aria-hidden="true" />
             <span className="table-heading">Name</span>
             <span className="table-heading">Target sites</span>
             <span className="table-heading">Color</span>
@@ -262,55 +430,115 @@ export function PopupApp() {
             </button>
           )}
 
-          {rules.map((rule) => (
-            <div className={rule.enabled ? "rule-row" : "rule-row disabled"} key={rule.id}>
-              <button type="button" className="name-cell" onClick={() => beginEditRule(rule)}>
-                <strong>{rule.name}</strong>
-                {!rule.enabled && <small>Paused</small>}
-              </button>
-              <div className="targets-cell">
-                {rule.patterns.slice(0, 3).map((pattern) => {
-                  const target = describePattern(pattern);
-                  return (
+          {rules.map((rule) => {
+            const conflictNames = [...(conflictNamesByRule.get(rule.id) ?? [])];
+            const rowClasses = [
+              "rule-row",
+              rule.enabled ? "" : "disabled",
+              draggedRuleId === rule.id ? "dragging" : "",
+              dropTarget?.ruleId === rule.id ? `drop-${dropTarget.position}` : "",
+            ]
+              .filter(Boolean)
+              .join(" ");
+
+            return (
+              <div
+                className={rowClasses}
+                key={rule.id}
+                onDragOver={(event) => handleDragOver(event, rule.id)}
+                onDrop={(event) => handleDrop(event, rule.id)}
+              >
+                <button
+                  type="button"
+                  className="rule-drag-handle"
+                  draggable
+                  aria-label={`Reorder ${rule.name}`}
+                  title="Drag to reorder. Alt + Arrow keys also work."
+                  onDragStart={(event) => handleDragStart(event, rule.id)}
+                  onDragEnd={handleDragEnd}
+                  onKeyDown={(event) => handleReorderKeyDown(event, rule.id)}
+                >
+                  ⠿
+                </button>
+                <button type="button" className="name-cell" onClick={() => beginEditRule(rule)}>
+                  <strong>{rule.name}</strong>
+                  {!rule.enabled && <small>Paused</small>}
+                  {conflictNames.length > 0 && (
+                    <small className="conflict-label">Overlaps: {conflictNames.join(", ")}</small>
+                  )}
+                </button>
+                <div className="targets-cell">
+                  {rule.patterns.slice(0, 3).map((pattern) => {
+                    const target = describePattern(pattern);
+                    return (
+                      <button
+                        type="button"
+                        className="target-chip"
+                        title={pattern}
+                        key={pattern}
+                        onClick={() => beginEditTarget(rule, pattern)}
+                      >
+                        <strong>{target.label}</strong>
+                        <small>{target.scope}</small>
+                      </button>
+                    );
+                  })}
+                  {rule.patterns.length > 3 && (
                     <button
                       type="button"
-                      className="target-chip"
-                      title={pattern}
-                      key={pattern}
-                      onClick={() => beginEditTarget(rule, pattern)}
+                      className="target-overflow"
+                      onClick={() => beginEditRule(rule)}
                     >
-                      <strong>{target.label}</strong>
-                      <small>{target.scope}</small>
+                      +{rule.patterns.length - 3}
                     </button>
-                  );
-                })}
-                {rule.patterns.length > 3 && (
+                  )}
+                </div>
+                <div className="color-cell">
                   <button
                     type="button"
-                    className="target-overflow"
-                    onClick={() => beginEditRule(rule)}
-                  >
-                    +{rule.patterns.length - 3}
-                  </button>
-                )}
+                    className="table-color"
+                    style={{ backgroundColor: GROUP_COLOR_HEX[rule.color] }}
+                    aria-label={`Change ${rule.name} group color`}
+                    aria-haspopup="listbox"
+                    aria-expanded={colorMenuRuleId === rule.id}
+                    onClick={() =>
+                      setColorMenuRuleId((current) =>
+                        current === rule.id ? undefined : rule.id,
+                      )
+                    }
+                  />
+                  {colorMenuRuleId === rule.id && (
+                    <div className="inline-color-picker" role="listbox" aria-label="Group color">
+                      {GROUP_COLORS.map((color) => (
+                        <button
+                          type="button"
+                          key={color}
+                          role="option"
+                          className={
+                            color === rule.color
+                              ? "inline-color-option selected"
+                              : "inline-color-option"
+                          }
+                          style={{ backgroundColor: GROUP_COLOR_HEX[color] }}
+                          aria-label={color}
+                          aria-selected={color === rule.color}
+                          onClick={() => void updateRuleColor(rule.id, color)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="edit-button"
+                  aria-label={`Edit ${rule.name}`}
+                  onClick={() => beginEditRule(rule)}
+                >
+                  ⋯
+                </button>
               </div>
-              <span
-                className="table-color"
-                style={{ backgroundColor: GROUP_COLOR_HEX[rule.color] }}
-                title={rule.color}
-                aria-label={`${rule.color} group color`}
-                role="img"
-              />
-              <button
-                type="button"
-                className="edit-button"
-                aria-label={`Edit ${rule.name}`}
-                onClick={() => beginEditRule(rule)}
-              >
-                ⋯
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
@@ -321,6 +549,7 @@ export function PopupApp() {
             <button
               type="button"
               className="icon-button"
+              aria-label="Close group editor"
               onClick={() => {
                 setDraft(undefined);
                 resetTargetEditor();
@@ -387,7 +616,7 @@ export function PopupApp() {
             <div className="target-adder">
               <input
                 value={targetInput}
-                placeholder="URL or domain, e.g. github.com"
+                placeholder="URL, domain, or keyword, e.g. github"
                 onChange={(event: ChangeEvent<HTMLInputElement>) =>
                   setTargetInput(event.target.value)
                 }
@@ -419,6 +648,16 @@ export function PopupApp() {
               </button>
             )}
           </div>
+
+          {draftConflictNames.length > 0 && (
+            <div className="conflict-warning" role="status">
+              <strong>Overlapping rule</strong>
+              <span>
+                This group also matches {quotedNames(draftConflictNames)}. The upper group takes
+                priority.
+              </span>
+            </div>
+          )}
 
           <fieldset>
             <legend>Color</legend>
@@ -493,7 +732,16 @@ export function PopupApp() {
         </section>
       )}
 
-      {message && <p className="message">{message}</p>}
+      {message && (
+        <div className="message" role="status">
+          <span>{message}</span>
+          {undoAction && (
+            <button type="button" className="undo-button" onClick={() => void undoLastChange()}>
+              Undo
+            </button>
+          )}
+        </div>
+      )}
 
       <details className="tab-actions">
         <summary>Current tab actions</summary>
@@ -509,14 +757,6 @@ export function PopupApp() {
           </button>
         </div>
       </details>
-
-      <button
-        type="button"
-        className="advanced"
-        onClick={() => void chrome.runtime.openOptionsPage()}
-      >
-        Advanced settings
-      </button>
     </main>
   );
 }
@@ -537,6 +777,9 @@ async function fetchTabState(tabId: number): Promise<TabStateRecord | undefined>
 function patternFromInput(value: string, scope: SiteScope): string | undefined {
   const trimmed = value.trim();
   if (!trimmed) return undefined;
+
+  if (/^[a-z0-9-]+$/i.test(trimmed)) return `${trimmed.toLowerCase()}/*`;
+
   try {
     const url = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`);
     if (!/^https?:$/.test(url.protocol) || !url.hostname) return undefined;
@@ -575,33 +818,96 @@ function describePattern(pattern: string): { label: string; scope: string } {
   const slashIndex = normalized.indexOf("/");
   const hostname = slashIndex === -1 ? normalized : normalized.slice(0, slashIndex);
   const path = slashIndex === -1 ? "" : normalized.slice(slashIndex);
+  if (/^[a-z0-9-]+$/i.test(hostname) && path === "/*") {
+    return { label: hostname, scope: "Site keyword" };
+  }
   if (path === "/*") return { label: hostname, scope: "Entire site" };
-  if (!path)
-    return {
-      label: hostname,
-      scope: normalized.includes("*") ? "Custom" : "Exact host",
-    };
+  if (!path) {
+    return { label: hostname, scope: normalized.includes("*") ? "Custom" : "Exact host" };
+  }
   if (path.includes("*")) {
     return { label: hostname, scope: `${path.replaceAll("*", "…")} path` };
   }
   return { label: hostname, scope: "Exact page" };
 }
 
-function formatState(state: TabStateRecord["state"] | undefined): string {
-  switch (state) {
+function describeTabStatus(
+  state: TabStateRecord | undefined,
+  tab: chrome.tabs.Tab | undefined,
+  rules: readonly GroupingRule[],
+): { title: string; detail?: string } {
+  const matching = tab?.url ? findMatchingRuleDetail(tab.url, rules) : undefined;
+  const managedRule = state?.managedRuleId
+    ? rules.find((rule) => rule.id === state.managedRuleId)
+    : matching?.rule;
+
+  switch (state?.state) {
     case "managed":
-      return "Managed by AutoGrouping";
+      return {
+        title: managedRule ? `Managed by ${managedRule.name}` : "Managed by AutoGrouping",
+        detail: matching ? `Matched target: ${describePattern(matching.pattern).label}` : undefined,
+      };
     case "protected-external":
-      return "In external group";
+      return { title: "In external group", detail: "External group ownership is preserved." };
     case "protected-user":
-      return "Protected manually";
+      return { title: "Protected manually", detail: "Use Return to automation to resume." };
     case "protected-split-view":
-      return "Protected by Split View";
+      return { title: "Protected by Split View", detail: "Grouping resumes after Split View ends." };
     case "ignored-pinned":
-      return "Pinned and ignored";
+      return { title: "Pinned and ignored", detail: "Pinned tabs remain in place." };
     case "unmatched":
-      return "No matching rule";
+      return { title: "No matching group", detail: hostnameDetail(tab?.url) };
     default:
-      return "Checking…";
+      return {
+        title: "Checking…",
+        detail: matching ? `Potential match: ${matching.rule.name}` : hostnameDetail(tab?.url),
+      };
   }
+}
+
+function hostnameDetail(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  try {
+    return `Hostname: ${new URL(url).hostname}`;
+  } catch {
+    return undefined;
+  }
+}
+
+function moveRule(
+  rules: readonly GroupingRule[],
+  sourceRuleId: string,
+  targetRuleId: string,
+  position: "before" | "after",
+): GroupingRule[] | undefined {
+  if (sourceRuleId === targetRuleId) return undefined;
+  const source = rules.find((rule) => rule.id === sourceRuleId);
+  if (!source) return undefined;
+
+  const remaining = rules.filter((rule) => rule.id !== sourceRuleId);
+  const targetIndex = remaining.findIndex((rule) => rule.id === targetRuleId);
+  if (targetIndex < 0) return undefined;
+
+  const insertionIndex = targetIndex + (position === "after" ? 1 : 0);
+  const next = [...remaining];
+  next.splice(insertionIndex, 0, source);
+  return normalizePriorities(next);
+}
+
+function normalizePriorities(rules: readonly GroupingRule[]): GroupingRule[] {
+  return rules.map((rule, index) => ({ ...rule, patterns: [...rule.patterns], priority: index }));
+}
+
+function cloneRule(rule: GroupingRule): GroupingRule {
+  return { ...rule, patterns: [...rule.patterns] };
+}
+
+function addMapValue(map: Map<string, Set<string>>, key: string, value: string): void {
+  const values = map.get(key) ?? new Set<string>();
+  values.add(value);
+  map.set(key, values);
+}
+
+function quotedNames(names: readonly string[]): string {
+  return names.map((name) => `“${name}”`).join(", ");
 }
