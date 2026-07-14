@@ -92,8 +92,12 @@ test("generates deterministic Chrome Web Store popup candidates", async ({
   });
 
   await page.getByRole("button", { name: "Close group editor" }).click();
-  const researchRow = page.locator(".rule-row").filter({ hasText: "Research" });
-  await researchRow.getByRole("button", { name: "Change Research group color" }).click();
+  const colorButton = page.getByRole("button", {
+    name: "Change Research group color",
+    exact: true,
+  });
+  const researchRow = page.locator(".rule-row").filter({ has: colorButton });
+  await colorButton.click();
   await expect(researchRow.getByRole("listbox", { name: "Group color" })).toBeVisible();
   await researchRow.screenshot({
     path: path.join(screenshotDirectory, "03-inline-color-picker.png"),
