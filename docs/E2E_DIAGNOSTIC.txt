@@ -1,0 +1,81 @@
+$ playwright test
+
+Running 2 tests using 1 worker
+·××F
+
+  1) tests/e2e/autogrouping.spec.ts:48:1 › preserves external groups, resumes after exit, and removes unmatched tabs 
+
+    ReferenceError: chrome is not defined
+
+      82 |           tabId,
+      83 |         );
+    > 84 |         if (tab.groupId === chrome.tabGroups.TAB_GROUP_ID_NONE) return undefined;
+         |                             ^
+      85 |         return serviceWorker.evaluate(
+      86 |           async (groupId) => chrome.tabGroups.get(groupId),
+      87 |           tab.groupId,
+        at expect.poll.timeout (/home/runner/work/autogrouping/autogrouping/tests/e2e/autogrouping.spec.ts:84:29)
+        at /home/runner/work/autogrouping/autogrouping/tests/e2e/autogrouping.spec.ts:77:3
+
+    Error Context: test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    ReferenceError: chrome is not defined
+
+      82 |           tabId,
+      83 |         );
+    > 84 |         if (tab.groupId === chrome.tabGroups.TAB_GROUP_ID_NONE) return undefined;
+         |                             ^
+      85 |         return serviceWorker.evaluate(
+      86 |           async (groupId) => chrome.tabGroups.get(groupId),
+      87 |           tab.groupId,
+        at expect.poll.timeout (/home/runner/work/autogrouping/autogrouping/tests/e2e/autogrouping.spec.ts:84:29)
+        at /home/runner/work/autogrouping/autogrouping/tests/e2e/autogrouping.spec.ts:77:3
+
+    Error Context: test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs-retry1/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs-retry1/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #2 ───────────────────────────────────────────────────────────────────────────────────────
+
+    ReferenceError: chrome is not defined
+
+      82 |           tabId,
+      83 |         );
+    > 84 |         if (tab.groupId === chrome.tabGroups.TAB_GROUP_ID_NONE) return undefined;
+         |                             ^
+      85 |         return serviceWorker.evaluate(
+      86 |           async (groupId) => chrome.tabGroups.get(groupId),
+      87 |           tab.groupId,
+        at expect.poll.timeout (/home/runner/work/autogrouping/autogrouping/tests/e2e/autogrouping.spec.ts:84:29)
+        at /home/runner/work/autogrouping/autogrouping/tests/e2e/autogrouping.spec.ts:77:3
+
+    Error Context: test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs-retry2/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs-retry2/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs-retry2/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    tests/e2e/autogrouping.spec.ts:48:1 › preserves external groups, resumes after exit, and removes unmatched tabs 
+  1 passed (4.2s)
+[ELIFECYCLE] Command failed with exit code 1.
