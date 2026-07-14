@@ -21,6 +21,17 @@ describe("matchesPattern", () => {
   it("escapes regular expression characters", () => {
     expect(matchesPattern("https://example.com/a+b", "https://example.com/a+b")).toBe(true);
   });
+
+  it("matches a site keyword against complete hostname labels", () => {
+    expect(matchesPattern("https://github.com/openai", "github/*")).toBe(true);
+    expect(matchesPattern("https://gist.github.com/openai", "github/*")).toBe(true);
+    expect(matchesPattern("https://github.io/project", "github")).toBe(true);
+  });
+
+  it("does not use substring matching for site keywords", () => {
+    expect(matchesPattern("https://githubusercontent.com/file", "github/*")).toBe(false);
+    expect(matchesPattern("https://notgithub.com", "github/*")).toBe(false);
+  });
 });
 
 describe("findMatchingRule", () => {
