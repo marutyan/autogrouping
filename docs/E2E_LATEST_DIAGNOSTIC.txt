@@ -1,0 +1,114 @@
+$ playwright test
+
+Running 2 tests using 1 worker
+·××F
+
+  1) tests/e2e/autogrouping.spec.ts:51:1 › preserves external groups, resumes after exit, and removes unmatched tabs 
+
+    Error: expect(received).toMatchObject(expected)
+
+    - Expected  - 1
+    + Received  + 1
+
+      Object {
+    -   "state": "managed",
+    +   "state": "unmatched",
+        "url": "http://github.localhost:43367/openai",
+      }
+
+    Call Log:
+    - Timeout 8000ms exceeded while waiting on the predicate
+
+       99 |         { timeout: 8_000 },
+      100 |       )
+    > 101 |       .toMatchObject({ state: "managed", url: matchingUrl });
+          |        ^
+      102 |
+      103 |     const managedTab = await serviceWorker.evaluate(
+      104 |       async (currentTabId) => chrome.tabs.get(currentTabId),
+        at /home/runner/work/autogrouping/autogrouping/tests/e2e/autogrouping.spec.ts:101:8
+
+    Error Context: test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(received).toMatchObject(expected)
+
+    - Expected  - 1
+    + Received  + 1
+
+      Object {
+    -   "state": "managed",
+    +   "state": "unmatched",
+        "url": "http://github.localhost:42563/openai",
+      }
+
+    Call Log:
+    - Timeout 8000ms exceeded while waiting on the predicate
+
+       99 |         { timeout: 8_000 },
+      100 |       )
+    > 101 |       .toMatchObject({ state: "managed", url: matchingUrl });
+          |        ^
+      102 |
+      103 |     const managedTab = await serviceWorker.evaluate(
+      104 |       async (currentTabId) => chrome.tabs.get(currentTabId),
+        at /home/runner/work/autogrouping/autogrouping/tests/e2e/autogrouping.spec.ts:101:8
+
+    Error Context: test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs-retry1/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs-retry1/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #2 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(received).toMatchObject(expected)
+
+    - Expected  - 1
+    + Received  + 1
+
+      Object {
+    -   "state": "managed",
+    +   "state": "unmatched",
+        "url": "http://github.localhost:42071/openai",
+      }
+
+    Call Log:
+    - Timeout 8000ms exceeded while waiting on the predicate
+
+       99 |         { timeout: 8_000 },
+      100 |       )
+    > 101 |       .toMatchObject({ state: "managed", url: matchingUrl });
+          |        ^
+      102 |
+      103 |     const managedTab = await serviceWorker.evaluate(
+      104 |       async (currentTabId) => chrome.tabs.get(currentTabId),
+        at /home/runner/work/autogrouping/autogrouping/tests/e2e/autogrouping.spec.ts:101:8
+
+    Error Context: test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs-retry2/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs-retry2/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/autogrouping-preserves-ext-120af--and-removes-unmatched-tabs-retry2/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    tests/e2e/autogrouping.spec.ts:51:1 › preserves external groups, resumes after exit, and removes unmatched tabs 
+  1 passed (30.3s)
+[ELIFECYCLE] Command failed with exit code 1.
