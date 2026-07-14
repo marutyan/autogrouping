@@ -6,6 +6,7 @@ const ROW_SELECTOR = ".group-table .rule-row";
 const HANDLE_CLASS = "rule-drag-handle";
 const DROP_BEFORE_CLASS = "drop-before";
 const DROP_AFTER_CLASS = "drop-after";
+const ADVANCED_LABEL = "Backup & advanced settings";
 
 let draggedRow: HTMLElement | undefined;
 let dropPosition: "before" | "after" = "before";
@@ -118,7 +119,9 @@ function enhanceTable(): void {
   }
 
   const advancedButton = document.querySelector<HTMLButtonElement>("button.advanced");
-  if (advancedButton) advancedButton.textContent = "Backup & advanced settings";
+  if (advancedButton && advancedButton.textContent !== ADVANCED_LABEL) {
+    advancedButton.textContent = ADVANCED_LABEL;
+  }
 }
 
 async function persistReorder(
@@ -128,7 +131,7 @@ async function persistReorder(
 ): Promise<void> {
   const settings = await loadSettings();
   const nextRules = reorderRules(settings.rules, sourceIndex, targetIndex, position);
-  if (nextRules === settings.rules) return;
+  if (!nextRules) return;
 
   await saveSettings({ ...settings, rules: nextRules });
   try {
@@ -150,14 +153,14 @@ function reorderRules(
   sourceIndex: number,
   targetIndex: number,
   position: "before" | "after",
-): GroupingRule[] | readonly GroupingRule[] {
+): GroupingRule[] | undefined {
   const source = rules[sourceIndex];
   const target = rules[targetIndex];
-  if (!source || !target || source.id === target.id) return rules;
+  if (!source || !target || source.id === target.id) return undefined;
 
   const remaining = rules.filter((rule) => rule.id !== source.id);
   const remainingTargetIndex = remaining.findIndex((rule) => rule.id === target.id);
-  if (remainingTargetIndex < 0) return rules;
+  if (remainingTargetIndex < 0) return undefined;
 
   const insertionIndex = remainingTargetIndex + (position === "after" ? 1 : 0);
   const next = [...remaining];
