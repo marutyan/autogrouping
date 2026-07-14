@@ -9,12 +9,16 @@ interface StatusResponse {
   state?: TabStateRecord;
 }
 
+type SiteScope = "site" | "path" | "page";
+
 export function PopupApp() {
   const [enabled, setEnabled] = useState(true);
   const [rules, setRules] = useState<GroupingRule[]>([]);
   const [tab, setTab] = useState<chrome.tabs.Tab>();
   const [state, setState] = useState<TabStateRecord>();
   const [draft, setDraft] = useState<GroupingRule>();
+  const [targetInput, setTargetInput] = useState("");
+  const [targetScope, setTargetScope] = useState<SiteScope>("site");
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -24,42 +28,50 @@ export function PopupApp() {
       setRules(settings.rules);
       const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
       setTab(activeTab);
-      if (activeTab?.id !== undefined) {
-        const response = (await chrome.runtime.sendMessage({
-          type: "get-status",
-          tabId: activeTab.id,
-        })) as StatusResponse;
-        setState(response.state);
-      }
+      await refreshStatus(activeTab);
     })();
   }, []);
+
+  async function refreshStatus(activeTab: chrome.tabs.Tab | undefined = tab) {
+    if (activeTab?.id === undefined) return;
+    const response = await safeSendMessage<StatusResponse>({
+      type: "get-status",
+      tabId: activeTab.id,
+    });
+    setState(response?.state);
+  }
 
   async function toggleEnabled() {
     const settings = await loadSettings();
     const next = !enabled;
     await saveSettings({ ...settings, enabled: next });
     setEnabled(next);
+    setMessage(next ? "Automatic grouping resumed." : "Automatic grouping paused.");
   }
 
   async function send(type: "return-tab" | "protect-tab" | "reevaluate-window") {
     if (!tab) return;
-    await chrome.runtime.sendMessage({ type, tabId: tab.id, windowId: tab.windowId });
-    if (tab.id !== undefined) {
-      const response = (await chrome.runtime.sendMessage({
-        type: "get-status",
-        tabId: tab.id,
-      })) as StatusResponse;
-      setState(response.state);
+    const response = await safeSendMessage({
+      type,
+      tabId: tab.id,
+      windowId: tab.windowId,
+    });
+    if (response === undefined) {
+      setMessage("Background service is restarting. Reopen the popup and try again.");
+      return;
     }
+    await refreshStatus();
   }
 
   function beginAddRule() {
     setMessage("");
+    setTargetInput("");
+    setTargetScope("site");
     setDraft({
       id: crypto.randomUUID(),
-      name: "New group",
+      name: suggestedGroupName(tab),
       color: "blue",
-      patterns: [defaultPattern(tab)],
+      patterns: defaultPattern(tab) ? [defaultPattern(tab)] : [],
       priority: rules.length,
       enabled: true,
       createdAt: Date.now(),
@@ -68,7 +80,35 @@ export function PopupApp() {
 
   function beginEditRule(rule: GroupingRule) {
     setMessage("");
+    setTargetInput("");
+    setTargetScope("site");
     setDraft({ ...rule, patterns: [...rule.patterns] });
+  }
+
+  function addTarget(value = targetInput, scope = targetScope) {
+    if (!draft) return;
+    const pattern = patternFromInput(value, scope);
+    if (!pattern) {
+      setMessage("Enter a valid URL or domain, such as example.com.");
+      return;
+    }
+    if (draft.patterns.includes(pattern)) {
+      setMessage("That target is already included.");
+      return;
+    }
+    setDraft({ ...draft, patterns: [...draft.patterns, pattern] });
+    setTargetInput("");
+    setMessage("");
+  }
+
+  function addCurrentSite() {
+    if (!tab?.url) return;
+    addTarget(tab.url, "site");
+  }
+
+  function removeTarget(pattern: string) {
+    if (!draft) return;
+    setDraft({ ...draft, patterns: draft.patterns.filter((item) => item !== pattern) });
   }
 
   async function persistDraft() {
@@ -89,7 +129,7 @@ export function PopupApp() {
     setDraft(undefined);
     setMessage("Saved.");
     if (tab?.windowId !== undefined) {
-      await chrome.runtime.sendMessage({ type: "reevaluate-window", windowId: tab.windowId });
+      await safeSendMessage({ type: "reevaluate-window", windowId: tab.windowId });
     }
   }
 
@@ -103,6 +143,9 @@ export function PopupApp() {
     setRules(nextRules);
     setDraft(undefined);
     setMessage("Deleted.");
+    if (tab?.windowId !== undefined) {
+      await safeSendMessage({ type: "reevaluate-window", windowId: tab.windowId });
+    }
   }
 
   return (
@@ -110,21 +153,26 @@ export function PopupApp() {
       <header>
         <div>
           <h1>AutoGrouping</h1>
-          <p>Choose a group or add one without leaving this popup.</p>
+          <p>Organize tabs by site without leaving this popup.</p>
         </div>
         <button
           type="button"
-          className={enabled ? "toggle active" : "toggle"}
+          className={enabled ? "automation-toggle running" : "automation-toggle paused"}
           onClick={() => void toggleEnabled()}
+          aria-pressed={enabled}
         >
-          {enabled ? "On" : "Off"}
+          <span className="automation-dot" aria-hidden="true" />
+          <span>
+            <small>Automatic grouping</small>
+            <strong>{enabled ? "Running" : "Paused"}</strong>
+          </span>
         </button>
       </header>
 
-      <section className="status">
+      <div className="current-status">
         <span>Current tab</span>
         <strong>{formatState(state?.state)}</strong>
-      </section>
+      </div>
 
       <section className="groups-section">
         <div className="section-heading">
@@ -133,36 +181,64 @@ export function PopupApp() {
             <span>{rules.length}</span>
           </div>
           <button type="button" className="add-button" onClick={beginAddRule}>
-            + Add
+            + Add group
           </button>
         </div>
 
-        <div className="rule-list">
+        <div className="group-table" role="table" aria-label="Automatic grouping rules">
+          <div className="table-header" role="row">
+            <span role="columnheader">Name</span>
+            <span role="columnheader">Target sites</span>
+            <span role="columnheader">Color</span>
+            <span aria-hidden="true" />
+          </div>
+
           {rules.length === 0 && (
             <button type="button" className="empty-rule" onClick={beginAddRule}>
-              No groups yet. Add your first group.
+              No groups yet. Add the current site as your first group.
             </button>
           )}
+
           {rules.map((rule) => (
-            <button
-              type="button"
-              className="rule-row"
+            <div
+              className={rule.enabled ? "rule-row" : "rule-row disabled"}
+              role="row"
               key={rule.id}
-              onClick={() => beginEditRule(rule)}
             >
-              <span
-                className="rule-color"
-                style={{ backgroundColor: GROUP_COLOR_HEX[rule.color] }}
-                aria-hidden="true"
-              />
-              <span className="rule-copy">
+              <button type="button" className="name-cell" onClick={() => beginEditRule(rule)}>
                 <strong>{rule.name}</strong>
-                <small>{rule.patterns.join(", ")}</small>
-              </span>
-              <span className={rule.enabled ? "rule-state enabled" : "rule-state"}>
-                {rule.enabled ? "On" : "Off"}
-              </span>
-            </button>
+                {!rule.enabled && <small>Paused</small>}
+              </button>
+              <button type="button" className="targets-cell" onClick={() => beginEditRule(rule)}>
+                {rule.patterns.slice(0, 3).map((pattern) => {
+                  const target = describePattern(pattern);
+                  return (
+                    <span className="target-chip" title={pattern} key={pattern}>
+                      <strong>{target.label}</strong>
+                      <small>{target.scope}</small>
+                    </span>
+                  );
+                })}
+                {rule.patterns.length > 3 && (
+                  <span className="target-overflow">+{rule.patterns.length - 3}</span>
+                )}
+              </button>
+              <span
+                className="table-color"
+                style={{ backgroundColor: GROUP_COLOR_HEX[rule.color] }}
+                title={rule.color}
+                aria-label={`${rule.color} group color`}
+                role="img"
+              />
+              <button
+                type="button"
+                className="edit-button"
+                aria-label={`Edit ${rule.name}`}
+                onClick={() => beginEditRule(rule)}
+              >
+                ⋯
+              </button>
+            </div>
           ))}
         </div>
       </section>
@@ -173,17 +249,13 @@ export function PopupApp() {
             <h2>
               {rules.some((rule) => rule.id === draft.id) ? "Edit group" : "Add group"}
             </h2>
-            <button
-              type="button"
-              className="icon-button"
-              onClick={() => setDraft(undefined)}
-            >
+            <button type="button" className="icon-button" onClick={() => setDraft(undefined)}>
               ×
             </button>
           </div>
 
-          <label>
-            <span>Name</span>
+          <label className="field">
+            <span>Group name</span>
             <input
               value={draft.name}
               onChange={(event: ChangeEvent<HTMLInputElement>) =>
@@ -192,8 +264,89 @@ export function PopupApp() {
             />
           </label>
 
-          <label>
-            <span>URL patterns</span>
+          <div className="field">
+            <div className="field-heading">
+              <span>Target sites</span>
+              {tab?.url && (
+                <button type="button" className="text-button" onClick={addCurrentSite}>
+                  + Current site
+                </button>
+              )}
+            </div>
+
+            <div className="target-list">
+              {draft.patterns.length === 0 && <p>No sites selected.</p>}
+              {draft.patterns.map((pattern) => {
+                const target = describePattern(pattern);
+                return (
+                  <span className="editable-target" key={pattern} title={pattern}>
+                    <span>
+                      <strong>{target.label}</strong>
+                      <small>{target.scope}</small>
+                    </span>
+                    <button
+                      type="button"
+                      aria-label={`Remove ${target.label}`}
+                      onClick={() => removeTarget(pattern)}
+                    >
+                      ×
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+
+            <div className="target-adder">
+              <input
+                value={targetInput}
+                placeholder="URL or domain, e.g. github.com"
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  setTargetInput(event.target.value)
+                }
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    addTarget();
+                  }
+                }}
+              />
+              <select
+                value={targetScope}
+                aria-label="Target scope"
+                onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                  setTargetScope(event.target.value as SiteScope)
+                }
+              >
+                <option value="site">Entire site</option>
+                <option value="path">This path</option>
+                <option value="page">This page</option>
+              </select>
+              <button type="button" onClick={() => addTarget()}>
+                Add
+              </button>
+            </div>
+          </div>
+
+          <fieldset>
+            <legend>Color</legend>
+            <div className="color-picker">
+              {GROUP_COLORS.map((color) => (
+                <button
+                  type="button"
+                  key={color}
+                  className={draft.color === color ? "color-swatch selected" : "color-swatch"}
+                  style={{ backgroundColor: GROUP_COLOR_HEX[color] }}
+                  aria-label={color}
+                  aria-pressed={draft.color === color}
+                  onClick={() => setDraft({ ...draft, color })}
+                />
+              ))}
+            </div>
+          </fieldset>
+
+          <details className="advanced-patterns">
+            <summary>Advanced URL patterns</summary>
+            <p>One wildcard pattern per line. Most users do not need to edit these directly.</p>
             <textarea
               rows={3}
               value={draft.patterns.join("\n")}
@@ -207,26 +360,7 @@ export function PopupApp() {
                 })
               }
             />
-          </label>
-
-          <fieldset>
-            <legend>Color</legend>
-            <div className="color-picker">
-              {GROUP_COLORS.map((color) => (
-                <button
-                  type="button"
-                  key={color}
-                  className={
-                    draft.color === color ? "color-swatch selected" : "color-swatch"
-                  }
-                  style={{ backgroundColor: GROUP_COLOR_HEX[color] }}
-                  aria-label={color}
-                  aria-pressed={draft.color === color}
-                  onClick={() => setDraft({ ...draft, color })}
-                />
-              ))}
-            </div>
-          </fieldset>
+          </details>
 
           <label className="enabled-control">
             <input
@@ -236,7 +370,7 @@ export function PopupApp() {
                 setDraft({ ...draft, enabled: event.target.checked })
               }
             />
-            Enabled
+            Use this automatic rule
           </label>
 
           <div className="editor-actions">
@@ -283,14 +417,54 @@ export function PopupApp() {
   );
 }
 
-function defaultPattern(tab: chrome.tabs.Tab | undefined): string {
-  if (!tab?.url) return "example.com/*";
+async function safeSendMessage<T = unknown>(message: unknown): Promise<T | undefined> {
   try {
-    const url = new URL(tab.url);
-    return /^https?:$/.test(url.protocol) ? `${url.hostname}/*` : "example.com/*";
+    return (await chrome.runtime.sendMessage(message)) as T;
   } catch {
-    return "example.com/*";
+    return undefined;
   }
+}
+
+function patternFromInput(value: string, scope: SiteScope): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  try {
+    const url = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`);
+    if (!/^https?:$/.test(url.protocol) || !url.hostname) return undefined;
+    if (scope === "site") return `${url.hostname}/*`;
+    if (scope === "page") return `${url.hostname}${url.pathname}${url.search}`;
+    const path = url.pathname === "/" ? "/" : url.pathname.replace(/\/+$/, "");
+    return `${url.hostname}${path === "/" ? "/*" : `${path}*`}`;
+  } catch {
+    return undefined;
+  }
+}
+
+function defaultPattern(tab: chrome.tabs.Tab | undefined): string {
+  return tab?.url ? (patternFromInput(tab.url, "site") ?? "") : "";
+}
+
+function suggestedGroupName(tab: chrome.tabs.Tab | undefined): string {
+  if (!tab?.url) return "New group";
+  try {
+    const hostname = new URL(tab.url).hostname.replace(/^www\./, "");
+    return hostname.split(".")[0] || "New group";
+  } catch {
+    return "New group";
+  }
+}
+
+function describePattern(pattern: string): { label: string; scope: string } {
+  const normalized = pattern.replace(/^\*:\/\//, "").replace(/^https?:\/\//, "");
+  const slashIndex = normalized.indexOf("/");
+  const hostname = slashIndex === -1 ? normalized : normalized.slice(0, slashIndex);
+  const path = slashIndex === -1 ? "" : normalized.slice(slashIndex);
+  if (path === "/*") return { label: hostname, scope: "Entire site" };
+  if (!path) return { label: hostname, scope: normalized.includes("*") ? "Custom" : "Exact host" };
+  if (path.includes("*")) {
+    return { label: hostname, scope: `${path.replaceAll("*", "…")} path` };
+  }
+  return { label: hostname, scope: "Exact page" };
 }
 
 function formatState(state: TabStateRecord["state"] | undefined): string {
