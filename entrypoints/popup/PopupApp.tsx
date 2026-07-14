@@ -1,5 +1,5 @@
 import { useEffect, useState, type ChangeEvent } from "react";
-import type { GroupColor, GroupingRule, TabStateRecord } from "../../src/core/types";
+import type { GroupingRule, TabStateRecord } from "../../src/core/types";
 import { validateSettings } from "../../src/core/rule-validation";
 import { GROUP_COLORS, GROUP_COLOR_HEX } from "../../src/ui/group-colors";
 import { loadSettings, saveSettings } from "../../src/ui/storage";
@@ -170,8 +170,14 @@ export function PopupApp() {
       {draft && (
         <section className="editor">
           <div className="editor-heading">
-            <h2>{rules.some((rule) => rule.id === draft.id) ? "Edit group" : "Add group"}</h2>
-            <button type="button" className="icon-button" onClick={() => setDraft(undefined)}>
+            <h2>
+              {rules.some((rule) => rule.id === draft.id) ? "Edit group" : "Add group"}
+            </h2>
+            <button
+              type="button"
+              className="icon-button"
+              onClick={() => setDraft(undefined)}
+            >
               ×
             </button>
           </div>
@@ -210,7 +216,9 @@ export function PopupApp() {
                 <button
                   type="button"
                   key={color}
-                  className={draft.color === color ? "color-swatch selected" : "color-swatch"}
+                  className={
+                    draft.color === color ? "color-swatch selected" : "color-swatch"
+                  }
                   style={{ backgroundColor: GROUP_COLOR_HEX[color] }}
                   aria-label={color}
                   aria-pressed={draft.color === color}
@@ -264,7 +272,11 @@ export function PopupApp() {
         </div>
       </details>
 
-      <button type="button" className="advanced" onClick={() => void chrome.runtime.openOptionsPage()}>
+      <button
+        type="button"
+        className="advanced"
+        onClick={() => void chrome.runtime.openOptionsPage()}
+      >
         Advanced settings
       </button>
     </main>
