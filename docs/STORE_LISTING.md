@@ -94,8 +94,9 @@ The CI artifact `autogrouping-store-screenshots` automatically generates these `
 - `01-main-popup.png`
 - `02-group-editor.png`
 - `03-inline-color-picker.png`
+- `04-drag-reordering.png`
 
-Capture the remaining browser-dependent states manually at `1280x800`.
+Capture browser-dependent states, especially the Chrome tab bar and a real current-tab match, manually at `1280x800`.
 
 1. **Main popup and group list**
    - Show three groups with different colors and target-site chips.
@@ -103,6 +104,7 @@ Capture the remaining browser-dependent states manually at `1280x800`.
 
 2. **Drag reordering**
    - Show one row being dragged with the insertion indicator visible.
+   - The CI-generated candidate reproduces this state without committing the drop.
    - Caption: `Drag groups to change priority and browser order.`
 
 3. **Group editor**
