@@ -443,6 +443,7 @@ export function PopupApp() {
 
             return (
               <div
+                role="listitem"
                 className={rowClasses}
                 key={rule.id}
                 onDragOver={(event) => handleDragOver(event, rule.id)}
