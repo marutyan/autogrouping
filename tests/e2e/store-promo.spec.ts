@@ -66,9 +66,11 @@ test("generates the required Chrome Web Store small promotional image", async ({
 
           .name {
             margin: 0;
-            font-size: 25px;
+            font-size: 21px;
             font-weight: 700;
-            letter-spacing: -0.04em;
+            letter-spacing: -0.035em;
+            line-height: 1;
+            white-space: nowrap;
           }
 
           .tabs {
