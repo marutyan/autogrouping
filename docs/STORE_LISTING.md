@@ -106,6 +106,16 @@ Capture the remaining browser-dependent states manually at `1280x800`.
    - Show AutoGrouping-owned groups arranged in rule order, followed by unmatched tabs.
    - Caption: `Keep managed groups ordered while leaving external groups alone.`
 
+## Small promotional image
+
+Chrome Web Store publication also requires one small promotional image at exactly `440x280` pixels. It should use square outer corners, avoid screenshots of sensitive browser content, and remain legible at card size. Official requirements: `https://developer.chrome.com/docs/webstore/images#small-promo-tile`.
+
+The CI artifact `autogrouping-store-promo` generates:
+
+- `small-promo-440x280.png`
+
+The generated image uses the existing AutoGrouping icon and abstract tab-group graphics only. Review the final PNG at native size before uploading it to the store dashboard.
+
 ## Publication links
 
 Copy these public HTTPS URLs into the Chrome Web Store dashboard:
