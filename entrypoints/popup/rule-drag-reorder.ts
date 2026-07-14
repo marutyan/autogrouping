@@ -6,7 +6,6 @@ const ROW_SELECTOR = ".group-table .rule-row";
 const HANDLE_CLASS = "rule-drag-handle";
 const DROP_BEFORE_CLASS = "drop-before";
 const DROP_AFTER_CLASS = "drop-after";
-const ADVANCED_LABEL = "Backup & advanced settings";
 
 let draggedRow: HTMLElement | undefined;
 let dropPosition: "before" | "after" = "before";
@@ -118,10 +117,7 @@ function enhanceTable(): void {
     row.prepend(handle);
   }
 
-  const advancedButton = document.querySelector<HTMLButtonElement>("button.advanced");
-  if (advancedButton && advancedButton.textContent !== ADVANCED_LABEL) {
-    advancedButton.textContent = ADVANCED_LABEL;
-  }
+  document.querySelector<HTMLButtonElement>("button.advanced")?.remove();
 }
 
 async function persistReorder(
