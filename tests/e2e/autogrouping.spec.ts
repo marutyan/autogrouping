@@ -49,7 +49,7 @@ test("preserves external groups, resumes after exit, and removes unmatched tabs"
   serviceWorker,
 }) => {
   const tabId = await serviceWorker.evaluate(async () => {
-    const tab = await chrome.tabs.create({ url: "https://example.com/", active: false });
+    const tab = await chrome.tabs.create({ url: "chrome://newtab/", active: false });
     if (tab.id === undefined) throw new Error("Missing neutral tab id");
     return tab.id;
   });
@@ -61,7 +61,8 @@ test("preserves external groups, resumes after exit, and removes unmatched tabs"
   }, tabId);
 
   await serviceWorker.evaluate(
-    async (currentTabId) => chrome.tabs.update(currentTabId, { url: "https://github.com/openai" }),
+    async (currentTabId) =>
+      chrome.tabs.update(currentTabId, { url: "http://github.localhost/openai" }),
     tabId,
   );
 
@@ -109,7 +110,7 @@ test("preserves external groups, resumes after exit, and removes unmatched tabs"
 
   await serviceWorker.evaluate(
     async (currentTabId) =>
-      chrome.tabs.update(currentTabId, { url: "https://example.com/unmatched" }),
+      chrome.tabs.update(currentTabId, { url: "http://example.localhost/unmatched" }),
     tabId,
   );
 
