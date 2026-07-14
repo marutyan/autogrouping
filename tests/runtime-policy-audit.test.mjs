@@ -8,7 +8,7 @@ describe("runtime policy audit", () => {
   it("allows local Chrome API runtime code", () => {
     expect(
       findRuntimePolicyViolations(
-        'const tabs = await chrome.tabs.query({ currentWindow: true });',
+        "const tabs = await chrome.tabs.query({ currentWindow: true });",
         "fixture.ts",
       ),
     ).toEqual([]);
@@ -26,9 +26,7 @@ describe("runtime policy audit", () => {
   it("reports dynamic code execution", () => {
     expect(
       findRuntimePolicyViolations('const run = new Function("return 1");', "fixture.ts"),
-    ).toEqual([
-      { filePath: "fixture.ts", line: 1, rule: "dynamic code: Function constructor" },
-    ]);
+    ).toEqual([{ filePath: "fixture.ts", line: 1, rule: "dynamic code: Function constructor" }]);
   });
 
   it("reports remote dynamic imports", () => {
