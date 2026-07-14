@@ -24,11 +24,12 @@ The popup is the complete configuration surface:
 
 Advanced wildcard patterns remain available inside each group editor. JSON import/export and the separate options page are intentionally not included.
 
-## Privacy and store preparation
+## Privacy and release preparation
 
 - [Privacy policy](PRIVACY.md)
 - [Chrome Web Store listing draft](docs/STORE_LISTING.md)
 - [Chrome Web Store release checklist](docs/STORE_RELEASE_CHECKLIST.md)
+- [Manual Chrome QA runbook](docs/MANUAL_QA.md)
 
 AutoGrouping processes tab URLs locally only to apply user-defined rules. It has no analytics, advertising, telemetry, remote backend, or user account.
 
