@@ -1,5 +1,6 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
+import type { Worker } from "@playwright/test";
 import { expect, test } from "./fixtures";
 
 const settings = {
@@ -81,10 +82,7 @@ test("preserves external groups, resumes after exit, and removes unmatched tabs"
       .toMatchObject({ groupId: externalGroupId, url: matchingUrl });
 
     await expect
-      .poll(
-        () => readTabState(serviceWorker, tabId),
-        { timeout: 8_000 },
-      )
+      .poll(() => readTabState(serviceWorker, tabId), { timeout: 8_000 })
       .toBe("protected-external");
 
     await serviceWorker.evaluate(async (currentTabId) => chrome.tabs.ungroup(currentTabId), tabId);
@@ -134,10 +132,7 @@ test("preserves external groups, resumes after exit, and removes unmatched tabs"
   }
 });
 
-async function readTabState(
-  serviceWorker: Parameters<typeof test>[0] extends never ? never : import("@playwright/test").Worker,
-  tabId: number,
-): Promise<string | undefined> {
+async function readTabState(serviceWorker: Worker, tabId: number): Promise<string | undefined> {
   return serviceWorker.evaluate(async (currentTabId) => {
     const data = await chrome.storage.session.get("tabStates");
     const entries = Array.isArray(data.tabStates) ? data.tabStates : [];
