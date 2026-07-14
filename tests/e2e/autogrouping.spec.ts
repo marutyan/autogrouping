@@ -72,6 +72,22 @@ test("preserves external groups, resumes after exit, and removes unmatched tabs"
     )
     .toMatchObject({ groupId: externalGroupId });
 
+  await expect
+    .poll(
+      () =>
+        serviceWorker.evaluate(async (currentTabId) => {
+          const data = await chrome.storage.session.get("tabStates");
+          const entries = Array.isArray(data.tabStates) ? data.tabStates : [];
+          const entry = entries.find(
+            (candidate): candidate is [number, { state?: string }] =>
+              Array.isArray(candidate) && candidate[0] === currentTabId,
+          );
+          return entry?.[1]?.state;
+        }, tabId),
+      { timeout: 8_000 },
+    )
+    .toBe("protected-external");
+
   await serviceWorker.evaluate(async (currentTabId) => chrome.tabs.ungroup(currentTabId), tabId);
 
   await expect
