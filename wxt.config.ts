@@ -1,4 +1,5 @@
 import { defineConfig } from "wxt";
+import packageJson from "./package.json";
 
 export default defineConfig({
   modules: ["@wxt-dev/module-react"],
@@ -6,7 +7,7 @@ export default defineConfig({
     name: "AutoGrouping",
     description:
       "Automatically organize tabs while preserving Split View and externally managed groups.",
-    version: "0.1.0",
+    version: packageJson.version,
     minimum_chrome_version: "120",
     permissions: ["storage", "tabs", "tabGroups", "contextMenus"],
     icons: {
