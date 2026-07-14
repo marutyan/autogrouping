@@ -4,6 +4,8 @@
 
 AutoGrouping only mutates groups recorded as its own. While a tab belongs to a user, Claude, browser-agent, or other-extension group, that membership is treated as external intent and left untouched. The protection is temporary: after the tab leaves the external group, normal URL-rule evaluation resumes automatically. Explicit user protection remains sticky until Return to automation is selected.
 
+When temporary external protection ends, the controller reloads the latest rules before evaluating the tab. This ensures edits made while a tab was protected are applied immediately.
+
 ## Split View boundary
 
 Split View is detected through feature detection. No group mutation or sorting operation is issued while a tab or its window is in Split View. Group-membership changes during the Split View transition are deferred to avoid mistaking Chrome's internal changes for user or agent intent.
