@@ -1,11 +1,7 @@
 import { createRoot } from "react-dom/client";
-import { installInlineColorPicker } from "./inline-color-picker";
 import { PopupApp } from "./PopupApp";
-import { installRuleDragReorder } from "./rule-drag-reorder";
 import "./style.css";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Popup root element is missing");
 createRoot(root).render(<PopupApp />);
-installInlineColorPicker();
-installRuleDragReorder();
