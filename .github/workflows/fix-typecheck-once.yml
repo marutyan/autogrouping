@@ -1,0 +1,48 @@
+name: One-time typecheck fix
+
+on:
+  push:
+    branches: [agent/initial-implementation]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/initial-implementation
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.12.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Apply exact optional property fix
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('entrypoints/popup/PopupApp.tsx')
+          text = path.read_text().replace(
+              '): { title: string; detail?: string } {',
+              '): { title: string; detail: string | undefined } {',
+              1,
+          )
+          path.write_text(text)
+          PY
+          rm docs/TYPECHECK_DIAGNOSTIC.txt
+          pnpm format
+          rm .github/workflows/fix-typecheck-once.yml
+      - name: Commit fix
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add .
+          git commit -m "fix: type current tab status details"
+          git push origin HEAD:agent/initial-implementation
