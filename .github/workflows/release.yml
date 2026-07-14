@@ -1,6 +1,7 @@
 name: Release
 
 on:
+  workflow_dispatch:
   push:
     tags: ["v*"]
 
@@ -20,6 +21,7 @@ jobs:
           node-version: 24
           cache: pnpm
       - name: Verify release tag matches package version
+        if: github.event_name == 'push'
         run: |
           package_version="$(node -p "JSON.parse(require('node:fs').readFileSync('package.json', 'utf8')).version")"
           expected_tag="v${package_version}"
@@ -31,7 +33,18 @@ jobs:
       - run: pnpm check
       - run: pnpm zip
       - run: sha256sum .output/*.zip > SHA256SUMS
-      - uses: softprops/action-gh-release@v2
+      - name: Upload release candidate
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: autogrouping-release-candidate
+          path: |
+            .output/*.zip
+            SHA256SUMS
+          if-no-files-found: error
+      - name: Publish GitHub Release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             .output/*.zip
