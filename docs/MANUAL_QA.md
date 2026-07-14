@@ -4,13 +4,17 @@ Use this runbook before marking the initial AutoGrouping release ready. Record r
 
 ## Preparation
 
-1. Update and build the branch:
+1. Update and validate the current release candidate from `main`:
 
    ```bash
-   git pull --rebase origin agent/initial-implementation
-   mise exec -- pnpm check
-   mise exec -- pnpm build
+   git switch main
+   git pull --ff-only origin main
+   pnpm install --frozen-lockfile
+   pnpm check
+   git rev-parse --short HEAD
    ```
+
+   Record the printed commit in the relevant QA issue before testing.
 
 2. Open `chrome://extensions`.
 3. Enable Developer mode.
@@ -130,4 +134,4 @@ Evidence:
 - Close Issue #1 after Stable and Beta both pass.
 - Close Issue #2 after the supported Split View regression passes without loops, freezes, or premature mutations.
 - Close Issue #3 after a real Claude or browser-agent session passes the external-group scenarios.
-- Keep PR #8 in Draft until Issues #1, #2, and #3 are complete.
+- Keep release-tracking Issue #7 open until the manual QA issues and remaining Chrome Web Store preparation are complete.
