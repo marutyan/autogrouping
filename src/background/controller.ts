@@ -218,21 +218,13 @@ export class AutoGroupingController {
     }
 
     if (!tab.url || !/^https?:/i.test(tab.url)) {
-      this.#tabStates.set(
-        tabId,
-        reduceTabState(current, { type: "rule-unmatched", at: Date.now() }),
-      );
-      await this.#persistTabStates();
+      await this.#markRuleUnmatched(tab, current);
       return;
     }
 
     const rule = findMatchingRule(tab.url, settings.rules);
     if (!rule) {
-      this.#tabStates.set(
-        tabId,
-        reduceTabState(current, { type: "rule-unmatched", at: Date.now() }),
-      );
-      await this.#persistTabStates();
+      await this.#markRuleUnmatched(tab, current);
       return;
     }
 
@@ -255,6 +247,29 @@ export class AutoGroupingController {
       );
       await this.#persistTabStates();
     });
+  }
+
+  async #markRuleUnmatched(tab: chrome.tabs.Tab, current: TabStateRecord): Promise<void> {
+    if (tab.id === undefined) return;
+
+    if (
+      tab.groupId !== undefined &&
+      tab.groupId !== TAB_GROUP_ID_NONE &&
+      this.#ownedGroups.has(tab.groupId)
+    ) {
+      this.#mutations.begin(tab.id, "ungroup", 3000, TAB_GROUP_ID_NONE);
+      try {
+        await chrome.tabs.ungroup(tab.id);
+      } catch {
+        this.#mutations.clear(tab.id);
+      }
+    }
+
+    this.#tabStates.set(
+      tab.id,
+      reduceTabState(current, { type: "rule-unmatched", at: Date.now() }),
+    );
+    await this.#persistTabStates();
   }
 
   async #getOrCreateOwnedGroup(
