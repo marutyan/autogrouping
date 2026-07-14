@@ -129,11 +129,7 @@ export function PopupApp() {
     setMessage("");
   }
 
-  function saveTarget(
-    value = targetInput,
-    scope = targetScope,
-    replacedPattern = editingPattern,
-  ) {
+  function saveTarget(value = targetInput, scope = targetScope, replacedPattern = editingPattern) {
     if (!draft) return;
     const pattern = patternFromInput(value, scope);
     if (!pattern) {
@@ -444,8 +440,9 @@ export function PopupApp() {
           <details className="advanced-patterns">
             <summary>Advanced matching patterns</summary>
             <p>
-              Use this only for wildcards inside a hostname or path, such as *.notion.site/* or
-              github.com/*/issues/*.
+              {
+                "Use this only for wildcards inside a hostname or path, such as *.notion.site/* or github.com/*/issues/*."
+              }
             </p>
             <textarea
               rows={3}
@@ -595,14 +592,15 @@ function formatState(state: TabStateRecord["state"] | undefined): string {
     case "managed":
       return "Managed by AutoGrouping";
     case "protected-external":
-      return "Protected from automation";
+      return "In external group";
+    case "protected-user":
+      return "Protected manually";
     case "protected-split-view":
       return "Protected by Split View";
     case "ignored-pinned":
       return "Pinned and ignored";
     case "unmatched":
       return "No matching rule";
-    case "pending":
     default:
       return "Checking…";
   }
