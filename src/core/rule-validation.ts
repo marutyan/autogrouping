@@ -80,10 +80,11 @@ export function validateSettings(value: unknown): ValidationResult<ExtensionSett
   const rawRules = Array.isArray(value.rules) ? value.rules : [];
   const ruleResults = rawRules.map((rule, index) => validateRule(rule, index));
   const errors = ruleResults.flatMap((result) => result.errors);
-  if (errors.length > 0) return { ok: false, errors };
 
+  // 不正なルールが1件でもあると設定全体を捨てていた挙動をやめ、不正なルールだけを除いた値を返す。
+  // errors は引き続き積むため、保存を拒否するかどうかの判断（例: popupのpersistRules）は呼び出し側の責任のまま変わらない。
   return {
-    ok: true,
+    ok: errors.length === 0,
     value: {
       enabled: typeof value.enabled === "boolean" ? value.enabled : DEFAULT_SETTINGS.enabled,
       newTabGracePeriodMs:
@@ -97,6 +98,6 @@ export function validateSettings(value: unknown): ValidationResult<ExtensionSett
       rules: ruleResults.flatMap((result) => (result.value ? [result.value] : [])),
       schemaVersion: 1,
     },
-    errors: [],
+    errors,
   };
 }

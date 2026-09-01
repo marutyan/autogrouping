@@ -1,4 +1,9 @@
 import { changedSplitViewId, isSplitViewTab } from "../browser/chrome-types";
+import {
+  findAdoptableGroupIds,
+  reconcileOwnedGroups,
+  type GroupSnapshot,
+} from "../core/group-ownership";
 import { MutationTracker } from "../core/mutation-tracker";
 import { findMatchingRule } from "../core/rule-matcher";
 import { KeyedMutex, KeyedScheduler } from "../core/scheduler";
@@ -6,7 +11,7 @@ import { initialTabState, reduceTabState } from "../core/state-machine";
 import {
   TAB_GROUP_ID_NONE,
   type ExtensionSettings,
-  type GroupColor,
+  type GroupingRule,
   type OwnedGroup,
   type TabStateRecord,
 } from "../core/types";
@@ -34,9 +39,16 @@ export class AutoGroupingController {
     for (const [id, group] of await this.#storage.getOwnedGroups())
       this.#ownedGroups.set(id, group);
     await this.#installMenus();
-    this.#registerListeners();
-    await this.#recoverOwnedGroupsAtStartup();
-    await this.#reconcileStartup();
+    try {
+      // 所有権整合と起動時の状態整理が終わるまでリスナーを登録しない。
+      // 先に登録すると、整合処理の途中でイベントが発火し #evaluateTab が作った記録を
+      // 整合処理の置き換えが消してしまう競合が起き得るため。
+      await this.#reconcileOwnership();
+      await this.#reconcileStartup();
+    } finally {
+      // 整合処理が例外を投げても拡張が完全に無反応にならないよう、リスナー登録は必ず行う。
+      this.#registerListeners();
+    }
   }
 
   #registerListeners(): void {
@@ -229,13 +241,7 @@ export class AutoGroupingController {
 
     await this.#windowMutex.run(tab.windowId, async () => {
       if (await this.#windowHasSplitView(tab.windowId)) return;
-      const result = await this.#getOrCreateOwnedGroup(
-        tab.windowId,
-        tabId,
-        rule.id,
-        rule.name,
-        rule.color,
-      );
+      const result = await this.#getOrCreateOwnedGroup(tab.windowId, tabId, rule);
       if (!result.createdWithTab && tab.groupId !== result.group.groupId) {
         this.#mutations.begin(tabId, "group", 3000, result.group.groupId);
         await chrome.tabs.group({ tabIds: [tabId], groupId: result.group.groupId });
@@ -274,33 +280,88 @@ export class AutoGroupingController {
   async #getOrCreateOwnedGroup(
     windowId: number,
     tabId: number,
-    ruleId: string,
-    title: string,
-    color: GroupColor,
+    rule: GroupingRule,
   ): Promise<{ group: OwnedGroup; createdWithTab: boolean }> {
-    const existing = [...this.#ownedGroups.values()].find(
-      (group) => group.windowId === windowId && group.ruleId === ruleId,
-    );
-    if (existing) {
+    // 同一 (windowId, ruleId) の所有グループが複数残っていても壊さず全部保持する方針のため、
+    // 代表選出は groupId 昇順で決定的に行う。先頭の記録が既に別ウィンドウへ移動済み、または
+    // グループごと消滅していた場合はその記録だけ更新／削除して次の候補へ進む。ここで止まると、
+    // 同ウィンドウに残っている有効な記録を見落として重複グループを新規作成してしまう。
+    const candidates = [...this.#ownedGroups.values()]
+      .filter((group) => group.windowId === windowId && group.ruleId === rule.id)
+      .sort((a, b) => a.groupId - b.groupId);
+    for (const candidate of candidates) {
       try {
-        const browserGroup = await chrome.tabGroups.get(existing.groupId);
-        if (browserGroup.title !== title || browserGroup.color !== color) {
-          await chrome.tabGroups.update(existing.groupId, { title, color });
+        const browserGroup = await chrome.tabGroups.get(candidate.groupId);
+        if (browserGroup.windowId !== candidate.windowId) {
+          // グループが別ウィンドウへ移動済み。所有記録のwindowIdだけ実際の値へ追随させ、
+          // 今回のタブには使わず次の候補へ進む。ここで採用すると chrome.tabs.group が
+          // 別ウィンドウのタブをこのウィンドウのグループへ吸い込んでしまう。
+          this.#ownedGroups.set(candidate.groupId, {
+            ...candidate,
+            windowId: browserGroup.windowId,
+          });
+          await this.#persistOwnedGroups();
+          continue;
         }
-        return { group: existing, createdWithTab: false };
+        if (browserGroup.title !== rule.name || browserGroup.color !== rule.color) {
+          await chrome.tabGroups.update(candidate.groupId, {
+            title: rule.name,
+            color: rule.color,
+          });
+        }
+        return { group: candidate, createdWithTab: false };
       } catch {
-        this.#ownedGroups.delete(existing.groupId);
+        this.#ownedGroups.delete(candidate.groupId);
       }
+    }
+
+    // 新規作成の前に、同ウィンドウに未所有だが引き取り可能な既存グループが無いか確認する。
+    // 所有権を失った後の再評価で同名グループが重複して作られる不具合の根本対策。
+    const adoptedGroupId = await this.#findAdoptableGroupInWindow(windowId, rule);
+    if (adoptedGroupId !== undefined) {
+      const owned: OwnedGroup = {
+        windowId,
+        groupId: adoptedGroupId,
+        ruleId: rule.id,
+        createdAt: Date.now(),
+      };
+      this.#ownedGroups.set(adoptedGroupId, owned);
+      await this.#persistOwnedGroups();
+      // 引き取ったグループの他のタブは protected-external のまま残っている。通常評価へ戻すことで、
+      // 一致しないタブは外れ、同名グループが複数残っていれば一致タブが代表グループへ寄っていく。
+      const tabsInGroup = await chrome.tabs.query({ windowId, groupId: adoptedGroupId });
+      for (const groupedTab of tabsInGroup) {
+        if (groupedTab.id !== undefined) this.#scheduleEvaluation(groupedTab.id, 0);
+      }
+      return { group: owned, createdWithTab: false };
     }
 
     this.#mutations.begin(tabId, "group", 3000);
     const groupId = await chrome.tabs.group({ tabIds: [tabId], createProperties: { windowId } });
-    await chrome.tabGroups.update(groupId, { title, color });
-    const owned: OwnedGroup = { windowId, groupId, ruleId, createdAt: Date.now() };
+    await chrome.tabGroups.update(groupId, { title: rule.name, color: rule.color });
+    const owned: OwnedGroup = { windowId, groupId, ruleId: rule.id, createdAt: Date.now() };
     this.#ownedGroups.set(groupId, owned);
-    await this.#storage.addKnownOwnedRuleId(ruleId);
+    await this.#storage.addKnownOwnedRuleId(rule.id);
     await this.#persistOwnedGroups();
     return { group: owned, createdWithTab: true };
+  }
+
+  // 指定ウィンドウのグループ観測結果を作り、その中に rule が安全に引き取れる未所有グループが
+  // あるかを findAdoptableGroupIds（reconcileOwnedGroupsと共通の判定源）で確認する。
+  // 複数候補があり得るが、この呼び出し元は1グループあれば足りるので先頭（groupId最小）を使う。
+  async #findAdoptableGroupInWindow(
+    windowId: number,
+    rule: GroupingRule,
+  ): Promise<number | undefined> {
+    const groups = await this.#buildGroupSnapshots({ windowId });
+    const knownOwnedRuleIds = await this.#storage.getKnownOwnedRuleIds();
+    return findAdoptableGroupIds({
+      groups,
+      rule,
+      windowId,
+      knownOwnedRuleIds,
+      ownedGroupIds: new Set(this.#ownedGroups.keys()),
+    })[0];
   }
 
   async #handleGroupChange(tabId: number, groupId: number): Promise<void> {
@@ -427,33 +488,51 @@ export class AutoGroupingController {
     return tabs.some(isSplitViewTab);
   }
 
-  async #recoverOwnedGroupsAtStartup(): Promise<void> {
-    const settings = this.#settings ?? (await this.#storage.getSettings());
-    const groups = await chrome.tabGroups.query({});
-    const knownOwnedRuleIds = await this.#storage.getKnownOwnedRuleIds();
-    const recovered = new Map<number, OwnedGroup>();
-
+  // chrome.tabGroups/tabs から純関数へ渡せる GroupSnapshot[] を組み立てる。
+  // 起動時の所有権整合(#reconcileOwnership)と、新規作成前の引き取り確認(#findAdoptableGroupInWindow)の
+  // 両方が使う共通の観測ロジック。
+  async #buildGroupSnapshots(query: chrome.tabGroups.QueryInfo = {}): Promise<GroupSnapshot[]> {
+    const groups = await chrome.tabGroups.query(query);
+    const snapshots: GroupSnapshot[] = [];
     for (const group of groups) {
       const tabs = await chrome.tabs.query({ windowId: group.windowId, groupId: group.id });
-      if (tabs.length === 0 || tabs.some(isSplitViewTab)) continue;
-      const candidates = settings.rules.filter((rule) => {
-        if (!knownOwnedRuleIds.has(rule.id)) return false;
-        if (!rule.enabled || rule.name !== group.title || rule.color !== group.color) return false;
-        return tabs.every((tab) => Boolean(tab.url && findMatchingRule(tab.url, [rule])));
-      });
-      if (candidates.length !== 1) continue;
-      const rule = candidates[0];
-      if (!rule) continue;
-      recovered.set(group.id, {
-        windowId: group.windowId,
+      snapshots.push({
         groupId: group.id,
-        ruleId: rule.id,
-        createdAt: Date.now(),
+        windowId: group.windowId,
+        title: group.title,
+        color: group.color,
+        tabs: tabs.map((tab) => ({
+          // exactOptionalPropertyTypes下ではid/urlがundefinedのプロパティを持てないため、値がある時だけ含める。
+          ...(tab.id === undefined ? {} : { id: tab.id }),
+          ...(tab.url === undefined ? {} : { url: tab.url }),
+          splitView: isSplitViewTab(tab),
+        })),
       });
     }
+    return snapshots;
+  }
+
+  // 永続化済みの所有記録(storage.session)を正として現在のグループ状態へ整合させる。
+  // 推定で毎回作り直す(#ownedGroups.clear() してからルール一致で組み立て直す)設計はここで廃止し、
+  // 実在しなくなった記録の削除、windowIdの追随、安全な条件を満たす未所有グループの引き取りだけを行う。
+  // 同一(windowId, ruleId)の所有グループが複数残っても、ここで壊す（消す）処理はしない。
+  // グループを消す操作は安全境界の外側なので作らず、通常のURL評価が一致タブを代表グループへ
+  // 寄せることで自然に1つへ収束させる。
+  async #reconcileOwnership(): Promise<void> {
+    const settings = this.#settings ?? (await this.#storage.getSettings());
+    const knownOwnedRuleIds = await this.#storage.getKnownOwnedRuleIds();
+    const groups = await this.#buildGroupSnapshots({});
+
+    const owned = reconcileOwnedGroups({
+      previous: this.#ownedGroups,
+      groups,
+      rules: settings.rules,
+      knownOwnedRuleIds,
+      now: Date.now(),
+    });
 
     this.#ownedGroups.clear();
-    for (const [groupId, group] of recovered) this.#ownedGroups.set(groupId, group);
+    for (const [groupId, record] of owned) this.#ownedGroups.set(groupId, record);
     await this.#persistOwnedGroups();
   }
 

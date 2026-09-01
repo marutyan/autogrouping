@@ -1,42 +1,50 @@
-# Architecture
+# 設計
 
-## Ownership boundary
+## 所有権の境界
 
-AutoGrouping only mutates groups recorded as its own. While a tab belongs to a user, Claude, browser-agent, or other-extension group, that membership is treated as external intent and left untouched. The protection is temporary: after the tab leaves the external group, normal URL-rule evaluation resumes automatically. Explicit user protection remains sticky until Return to automation is selected.
+AutoGroupingは、自分のものとして記録したグループだけを変更する。タブが利用者、ブラウザーエージェント、他の拡張機能が作ったグループに属している間、その所属は外部の意図として扱い、手を触れない。この保護は一時的で、タブが外部のグループから出れば、通常のURLルール評価が自動的に再開する。利用者が明示した保護だけは、`Return to automation`が選ばれるまで解除されない。
 
-## Split View boundary
+## Split Viewの境界
 
-Split View is detected through feature detection. No group mutation or sorting operation is issued while a tab or its window is in Split View. Group-membership changes during the Split View transition are deferred to avoid mistaking Chrome's internal changes for user or agent intent.
+Split Viewは機能検出で判定する。タブまたはそのウィンドウがSplit Viewにある間は、グループの変更も並び替えも一切行わない。Split Viewへの遷移中に起きたグループ所属の変化は、Chrome内部の変更を利用者やエージェントの意図と取り違えないよう、判断を先送りする。
 
-## Popup architecture
+## Popupの構成
 
-The popup is the complete configuration surface. Drag reordering, inline color selection, conflict feedback, match reasons, and Undo are implemented as React state and event handlers. There are no DOM-observer shims and no separate options page.
+Popupが設定の全てである。ドラッグによる並び替え、色の選択、競合の表示、一致理由の表示、取り消しは、すべてReactの状態とイベントハンドラーで実装している。DOM監視による補助実装も、独立した設定ページも持たない。
 
-Rule order has two effects:
+ルールの並び順は2つの意味を持つ。
 
-1. Matching priority is evaluated from top to bottom.
-2. AutoGrouping-owned Chrome groups are sorted into the same order after pinned tabs.
+1. 一致の優先順位を上から順に評価する。
+2. AutoGroupingが所有するChromeのグループを、固定したタブの後ろへ同じ順番で並べる。
 
-Conflict feedback compares representative URLs for keyword, hostname, and wildcard patterns. It is advisory; the deterministic top-to-bottom matcher remains the source of truth.
+競合の表示は、キーワード、ホスト名、ワイルドカードの各パターンについて代表的なURLを比較する。これは参考情報であり、上から順に判定する決定的な照合処理が正となる。
 
-## Storage
+## 保存領域
 
-- `storage.sync`: user settings and grouping rules.
-- `storage.session`: tab state and session-specific group IDs.
-- `storage.local`: persistent evidence that AutoGrouping previously created a group for a rule.
+- `storage.sync`: 利用者の設定とグルーピングのルール。
+- `storage.session`: タブの状態と、セッション内でのみ有効なグループID。
+- `storage.local`: そのルールで過去にグループを作ったという恒久的な証拠。
 
-## Event model
+`storage.session`の所有記録が、service workerの再起動をまたいだ正となる。起動時はこれを作り直さず、現在のChromeのグループ状態と突き合わせる。行うのは、実在しなくなったグループとルールの記録を落とすこと、別ウィンドウへ移ったグループを追うことだけである。起動時のルール推定は、未所有のグループをこの記録へ引き取るためだけに使い、記録を置き換えるためには使わない。
 
-- Per-tab schedulers coalesce rapid URL and grouping updates.
-- A per-window mutex serializes grouping mutations.
-- A pending-mutation tracker distinguishes internal changes from external changes.
-- A window sorter moves only AutoGrouping-owned groups.
-- `tabs.onActivated` is intentionally not a grouping trigger.
+同一のウィンドウとルールに所有グループが複数できた場合（未所有のグループを同時に2つ引き取った場合など）、重複と推定した側からタブを移してグループを消す形の統合は行わない。推定に基づいて破壊的な操作をすることは、上の所有権の境界がまさに禁じている。代わりに両方を所有したまま残す。通常のURLルール評価は、一致したタブを必ず`#getOrCreateOwnedGroup`が選んだグループ（決定的に、最小のグループID）へ移すため、選ばれなかった側は一致タブが移るにつれて空になり、空になった時点でChromeが削除する。
 
-## Validation
+未所有グループの引き取りは推定であって、過去に所有していた証明ではない。条件は、名前と色の完全一致、そのルールが過去にグループを所有したという証拠（`knownOwnedRuleIds`。一度書かれると失効しない）、ルールに一致するタブが1件以上あること、の4つである（`group-ownership.ts`の`isAdoptableGroup`）。したがってREADMEにある「AutoGroupingが作ったグループだけを管理する」は、未所有グループについては推定に基づく。利用者自身のグループがこの4条件をすべて満たした場合、AutoGroupingはそれを引き取り、続いて`#markRuleUnmatched`がルールに一致しないタブをすべてグループから外す。最悪の場合、そのグループは一致するタブだけに削られ、それらも離れた時点で空になってChromeに削除される。
 
-Unit tests cover pure matching and state logic. Playwright launches the built unpacked extension in a persistent Chromium context to exercise popup rendering and real tab/group API behavior. Split View remains a manual Stable/Beta regression because Playwright does not provide a reliable Split View control surface.
+名前や色の変更による所有権の解放は、service workerが動作している間に限った最善努力である。停止中に行われた改名は観測されない。名前と色がルールの値へ戻されるのは、そのルールに一致するタブが評価された時点（`#getOrCreateOwnedGroup`）であり、決まった周期ではない。グループ内のタブが1つもルールに一致しなくなった場合は、戻す処理自体が行われない。代わりに全てのタブがグループから外れ、グループは削除される。
 
-## Privacy
+## イベントの扱い
 
-The extension has no content script, remote API, analytics, advertising, or telemetry. URLs are evaluated locally against user-defined rules and are not retained as browsing history.
+- タブごとのスケジューラーが、短時間に連続するURLとグループの更新をまとめる。
+- ウィンドウごとの排他制御が、グループ変更を直列化する。
+- 保留中の変更の追跡が、自分が出した変更と外部の変更を区別する。
+- ウィンドウの並び替えは、AutoGroupingが所有するグループだけを動かす。
+- `tabs.onActivated`は、意図的にグルーピングの起点にしていない。
+
+## 検証
+
+単体テストは、副作用のない照合処理と状態遷移を対象とする。Playwrightは、ビルドした未パッケージの拡張機能を永続的なChromiumのコンテキストで起動し、Popupの描画と実際のタブおよびグループAPIの挙動を確認する。Split Viewは、Playwrightに信頼できる操作手段がないため、Stable版とBeta版での手動確認のままとする。
+
+## プライバシー
+
+この拡張機能は、content script、外部API、分析、広告、利用状況の送信を一切持たない。URLは利用者が定めたルールと照合するためにローカルでのみ評価し、閲覧履歴として保持しない。
