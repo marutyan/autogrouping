@@ -54,10 +54,20 @@
   box-sizing: border-box;
 }
 
+/* Popupの幅。一覧は400px、編集画面は入力行(URL入力・範囲・Add)が1行に収まるよう480pxへ広げる。
+   Chromeのポップアップは文書の幅に追従するので、bodyとmainの両方をこの値で揃える。 */
+:root {
+  --popup-width: 400px;
+}
+
+body:has(main.editing) {
+  --popup-width: 480px;
+}
+
 body {
   margin: 0;
   padding: 0;
-  width: 400px;
+  width: var(--popup-width);
   background-color: var(--bg);
   color: var(--fg);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -67,7 +77,7 @@ body {
 }
 
 main {
-  width: 400px;
+  width: var(--popup-width);
   max-height: 600px;
   min-height: 240px;
   overflow-y: auto;
