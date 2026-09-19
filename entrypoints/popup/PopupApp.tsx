@@ -203,7 +203,7 @@ export function PopupApp() {
   }
 
   return (
-    <main>
+    <main className={draft ? "editing" : undefined}>
       {draft ? (
         <GroupEditor
           draft={draft}
