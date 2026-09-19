@@ -3,7 +3,12 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["tests/core/**/*.test.ts"],
+    include: [
+      "tests/core/**/*.test.ts",
+      "tests/messaging/**/*.test.ts",
+      "tests/background/**/*.test.ts",
+      "tests/ui/**/*.test.ts",
+    ],
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "lcov"],
