@@ -56,12 +56,15 @@ Run this section once in current Chrome Stable and once in current Chrome Beta.
 - [ ] Returning or navigating to an unmatched URL removes the tab from its AutoGrouping-owned group.
 - [ ] Managed groups appear in popup order, followed by unmatched tabs and external groups.
 - [ ] Dragging a popup row changes both matching priority and browser group order.
-- [ ] Changing the color square updates the actual Chrome tab-group color.
+- [ ] Changing the group color in the editor updates the actual Chrome tab-group color.
+- [ ] Toggling the switch on a group row pauses or resumes automatic grouping for that group.
+- [ ] Using **Add this site…** in the footer menu adds the current domain to an existing or new group.
 
 ### Manual protection
 
-- [ ] **Protect this tab** prevents regrouping after navigation.
-- [ ] **Return to automation** clears explicit protection and immediately re-evaluates the tab.
+- [ ] **Protect this tab** in the status card prevents regrouping after navigation.
+- [ ] **Return to automation** in the status card clears explicit protection and immediately re-evaluates the tab.
+- [ ] **Re-evaluate window** in the status card updates grouping for open tabs.
 - [ ] A pinned tab remains ungrouped and in place.
 
 ## Split View regression — Issue #2

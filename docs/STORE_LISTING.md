@@ -93,7 +93,7 @@ The CI artifact `autogrouping-store-screenshots` automatically generates these `
 
 - `01-main-popup.png`
 - `02-group-editor.png`
-- `03-inline-color-picker.png`
+- `03-add-current-site.png`
 - `04-drag-reordering.png`
 
 Capture browser-dependent states, especially the Chrome tab bar and a real current-tab match, manually at `1280x800`.

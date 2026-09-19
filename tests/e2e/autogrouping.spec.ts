@@ -55,10 +55,15 @@ test("popup shows rule reasons, conflicts, and no separate settings page", async
 }) => {
   await page.goto(`chrome-extension://${extensionId}/popup.html`);
 
-  await expect(page.getByText("Groups match from top to bottom")).toBeVisible();
+  await expect(page.getByText("Matched top to bottom")).toBeVisible();
   await expect(page.getByText("Overlaps: GitHub Host")).toBeVisible();
   await expect(page.getByRole("button", { name: /advanced settings/i })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Reorder GitHub", exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "+ New group" }).click();
+  await expect(page.getByRole("heading", { name: "New group" })).toBeVisible();
+  await page.getByRole("button", { name: "Back to groups" }).click();
+  await expect(page.getByRole("button", { name: "+ New group" })).toBeVisible();
 });
 
 test("preserves external groups, resumes after exit, and removes unmatched tabs", async ({

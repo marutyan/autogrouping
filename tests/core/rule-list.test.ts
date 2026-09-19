@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  addPatternToRule,
   cloneRule,
+  createRuleDraft,
   moveRule,
   normalizePriorities,
   removeRule,
@@ -131,5 +133,49 @@ describe("removeRule", () => {
     const result = removeRule(rules, "nonexistent");
     expect(result.map((r) => r.id)).toEqual(["a"]);
     expect(result[0]?.priority).toBe(0);
+  });
+});
+
+describe("addPatternToRule", () => {
+  it("adds pattern to target rule when not already present", () => {
+    const rules = [createRule("a", "Rule A", 0), createRule("b", "Rule B", 1)];
+    const result = addPatternToRule(rules, "a", "example.com/*");
+    expect(result[0]?.patterns).toEqual(["a.com/*", "example.com/*"]);
+    expect(result[1]?.patterns).toEqual(["b.com/*"]);
+  });
+
+  it("returns same array contents if pattern is already included in target rule", () => {
+    const rules = [createRule("a", "Rule A", 0)];
+    const result = addPatternToRule(rules, "a", "a.com/*");
+    expect(result).toEqual(rules);
+    expect(result[0]?.patterns).toEqual(["a.com/*"]);
+  });
+
+  it("returns same array contents if rule id is not found", () => {
+    const rules = [createRule("a", "Rule A", 0)];
+    const result = addPatternToRule(rules, "nonexistent", "example.com/*");
+    expect(result).toEqual(rules);
+  });
+});
+
+describe("createRuleDraft", () => {
+  it("creates a default rule draft with empty patterns when none are provided", () => {
+    const rules = [createRule("a", "Rule A", 0), createRule("b", "Rule B", 1)];
+    const draft = createRuleDraft(rules);
+    expect(draft.name).toBe("");
+    expect(draft.color).toBe("blue");
+    expect(draft.patterns).toEqual([]);
+    expect(draft.priority).toBe(2);
+    expect(draft.enabled).toBe(true);
+    expect(typeof draft.id).toBe("string");
+    expect(draft.id.length).toBeGreaterThan(0);
+  });
+
+  it("creates a rule draft with provided initial patterns", () => {
+    const rules = [createRule("a", "Rule A", 0)];
+    const draft = createRuleDraft(rules, ["github.com/*"]);
+    expect(draft.patterns).toEqual(["github.com/*"]);
+    expect(draft.priority).toBe(1);
+    expect(draft.enabled).toBe(true);
   });
 });
