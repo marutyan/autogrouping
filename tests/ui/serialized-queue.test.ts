@@ -71,4 +71,38 @@ describe("SerializedQueue", () => {
     expect(result).toBe("success");
     expect(queue.getCurrent()).toBe(15);
   });
+
+  it("preserves sequential updates when toggle and persist updaters are queued concurrently", async () => {
+    type RuleItem = { id: string; name: string; enabled: boolean };
+    const queue = new SerializedQueue<RuleItem[]>([
+      { id: "r1", name: "Alpha", enabled: true },
+      { id: "r2", name: "Beta", enabled: true },
+    ]);
+
+    const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    // タスク1: 行トグル（r1 を無効化）
+    const toggleTask = queue.enqueue(async (current) => {
+      await delay(15);
+      const next = current.map((r) => (r.id === "r1" ? { ...r, enabled: false } : r));
+      return { next, result: { ok: true } };
+    });
+
+    // タスク2: persistRules の更新関数（r3 を追加）
+    const addTask = queue.enqueue(async (current) => {
+      await delay(5);
+      const updater = (rules: RuleItem[]) => [...rules, { id: "r3", name: "Gamma", enabled: true }];
+      const next = updater(current);
+      return { next, result: { ok: true } };
+    });
+
+    await Promise.all([toggleTask, addTask]);
+
+    // 両方の変更（r1無効化とr3追加）が失われずに反映されていること
+    expect(queue.getCurrent()).toEqual([
+      { id: "r1", name: "Alpha", enabled: false },
+      { id: "r2", name: "Beta", enabled: true },
+      { id: "r3", name: "Gamma", enabled: true },
+    ]);
+  });
 });

@@ -36,10 +36,16 @@ export function useRuleDraft({ rules, currentTabUrl, onMessage }: UseRuleDraftOp
     resetTargetEditor();
   }
 
-  function beginAddRule(initialPatterns: readonly string[] = []) {
+  function beginAddRule() {
     onMessage("");
     resetTargetEditor();
-    setDraft(createRuleDraft(rules, initialPatterns));
+    setDraft(createRuleDraft(rules));
+  }
+
+  function beginAddRuleWithPatterns(patterns: readonly string[]) {
+    onMessage("");
+    resetTargetEditor();
+    setDraft(createRuleDraft(rules, patterns));
   }
 
   function beginEditRule(rule: GroupingRule) {
@@ -115,6 +121,7 @@ export function useRuleDraft({ rules, currentTabUrl, onMessage }: UseRuleDraftOp
     resetTargetEditor,
     resetDraft,
     beginAddRule,
+    beginAddRuleWithPatterns,
     beginEditRule,
     beginEditTarget,
     startEditingTarget,

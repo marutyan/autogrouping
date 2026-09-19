@@ -51,8 +51,13 @@ export function useSettings(windowId?: number) {
     return { ok: true, rules: validation.value.rules };
   }
 
-  async function persistRules(nextRules: GroupingRule[]): Promise<PersistRulesResult> {
+  // ルール一覧の更新関数を受け取り、直列化キュー内で最新のルール配列に適用して保存する。
+  // 行トグルの保存待ち中に並び替え・削除・追加等が行われても互いの更新を破棄せず最新状態に適用される。
+  async function persistRules(
+    updater: (current: GroupingRule[]) => GroupingRule[],
+  ): Promise<PersistRulesResult> {
     return await queueRef.current.enqueue<PersistRulesResult>(async (currentRules) => {
+      const nextRules = updater(currentRules);
       const result = await saveRulesInternal(nextRules);
       if (result.ok) {
         setRules(result.rules);

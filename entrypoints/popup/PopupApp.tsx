@@ -49,6 +49,7 @@ export function PopupApp() {
     resetTargetEditor,
     resetDraft,
     beginAddRule,
+    beginAddRuleWithPatterns,
     beginEditRule,
     startEditingTarget,
     saveTarget,
@@ -113,8 +114,7 @@ export function PopupApp() {
 
   async function handlePersistDraft() {
     if (!draft) return;
-    const nextRules = upsertRule(rules, draft);
-    const result = await persistRules(nextRules);
+    const result = await persistRules((current) => upsertRule(current, draft));
     if (!result.ok) {
       showMessage(result.error);
       return;
@@ -126,8 +126,7 @@ export function PopupApp() {
   async function handleDeleteDraft() {
     if (!draft) return;
     const previousRules = rules.map(cloneRule);
-    const nextRules = removeRule(rules, draft.id);
-    const result = await persistRules(nextRules);
+    const result = await persistRules((current) => removeRule(current, draft.id));
     if (!result.ok) {
       showMessage(result.error);
       return;
@@ -144,10 +143,11 @@ export function PopupApp() {
     targetRuleId: string,
     position: "before" | "after",
   ) {
-    const nextRules = moveRule(rules, sourceRuleId, targetRuleId, position);
-    if (!nextRules) return;
     const previousRules = rules.map(cloneRule);
-    const result = await persistRules(nextRules);
+    const result = await persistRules((current) => {
+      const next = moveRule(current, sourceRuleId, targetRuleId, position);
+      return next ?? current;
+    });
     if (!result.ok) {
       showMessage(result.error);
       return;
@@ -158,7 +158,7 @@ export function PopupApp() {
   async function handleUndo() {
     if (!undoAction) return;
     const previousRules = undoAction.previousRules.map(cloneRule);
-    const result = await persistRules(previousRules);
+    const result = await persistRules(() => previousRules);
     if (!result.ok) {
       showMessage(result.error);
       return;
@@ -183,8 +183,7 @@ export function PopupApp() {
       return;
     }
 
-    const nextRules = addPatternToRule(rules, rule.id, pattern);
-    const result = await persistRules(nextRules);
+    const result = await persistRules((current) => addPatternToRule(current, rule.id, pattern));
     if (!result.ok) {
       showMessage(result.error);
       return;
@@ -196,7 +195,7 @@ export function PopupApp() {
     if (tab?.url) {
       const pattern = patternFromInput(tab.url, "site");
       if (pattern) {
-        beginAddRule([pattern]);
+        beginAddRuleWithPatterns([pattern]);
         return;
       }
     }
@@ -241,7 +240,7 @@ export function PopupApp() {
             draggedRuleId={draggedRuleId}
             dropTarget={dropTarget}
             onEditRule={beginEditRule}
-            onAddRule={beginAddRule}
+            onAddRule={() => beginAddRule()}
             onToggleRuleEnabled={(ruleId) => void handleToggleRuleEnabled(ruleId)}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
@@ -252,7 +251,7 @@ export function PopupApp() {
           <AddSiteMenu
             tabUrl={tab?.url}
             rules={rules}
-            onAddGroup={beginAddRule}
+            onAddGroup={() => beginAddRule()}
             onAddSiteToGroup={(rule) => void handleAddSiteToGroup(rule)}
             onNewGroupWithSite={handleNewGroupWithSite}
           />
