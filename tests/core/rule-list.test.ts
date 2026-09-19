@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   addPatternToRule,
   cloneRule,
+  createRuleDraft,
   moveRule,
   normalizePriorities,
   removeRule,
@@ -154,5 +155,27 @@ describe("addPatternToRule", () => {
     const rules = [createRule("a", "Rule A", 0)];
     const result = addPatternToRule(rules, "nonexistent", "example.com/*");
     expect(result).toEqual(rules);
+  });
+});
+
+describe("createRuleDraft", () => {
+  it("creates a default rule draft with empty patterns when none are provided", () => {
+    const rules = [createRule("a", "Rule A", 0), createRule("b", "Rule B", 1)];
+    const draft = createRuleDraft(rules);
+    expect(draft.name).toBe("");
+    expect(draft.color).toBe("blue");
+    expect(draft.patterns).toEqual([]);
+    expect(draft.priority).toBe(2);
+    expect(draft.enabled).toBe(true);
+    expect(typeof draft.id).toBe("string");
+    expect(draft.id.length).toBeGreaterThan(0);
+  });
+
+  it("creates a rule draft with provided initial patterns", () => {
+    const rules = [createRule("a", "Rule A", 0)];
+    const draft = createRuleDraft(rules, ["github.com/*"]);
+    expect(draft.patterns).toEqual(["github.com/*"]);
+    expect(draft.priority).toBe(1);
+    expect(draft.enabled).toBe(true);
   });
 });

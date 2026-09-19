@@ -193,8 +193,14 @@ export function PopupApp() {
   }
 
   function handleNewGroupWithSite() {
+    if (tab?.url) {
+      const pattern = patternFromInput(tab.url, "site");
+      if (pattern) {
+        beginAddRule([pattern]);
+        return;
+      }
+    }
     beginAddRule();
-    addCurrentSite();
   }
 
   return (

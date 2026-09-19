@@ -6,6 +6,7 @@ import {
   patternToInput,
   type SiteScope,
 } from "../../../src/core/pattern-input";
+import { createRuleDraft } from "../../../src/core/rule-list";
 import type { GroupingRule } from "../../../src/core/types";
 
 // useRuleDraft hook の初期化オプション。
@@ -35,18 +36,10 @@ export function useRuleDraft({ rules, currentTabUrl, onMessage }: UseRuleDraftOp
     resetTargetEditor();
   }
 
-  function beginAddRule() {
+  function beginAddRule(initialPatterns: readonly string[] = []) {
     onMessage("");
     resetTargetEditor();
-    setDraft({
-      id: crypto.randomUUID(),
-      name: "",
-      color: "blue",
-      patterns: [],
-      priority: rules.length,
-      enabled: true,
-      createdAt: Date.now(),
-    });
+    setDraft(createRuleDraft(rules, initialPatterns));
   }
 
   function beginEditRule(rule: GroupingRule) {

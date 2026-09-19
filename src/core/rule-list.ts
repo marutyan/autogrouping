@@ -68,3 +68,20 @@ export function addPatternToRule(
     rule.id === ruleId ? { ...rule, patterns: [...rule.patterns, pattern] } : rule,
   );
 }
+
+// 新規ルールのドラフト用オブジェクトを初期値および指定された初期パターン一覧から生成する。
+// 「+ New group with this site」などで初期パターンを含めたドラフトを安全に構築するための純関数。
+export function createRuleDraft(
+  rules: readonly GroupingRule[],
+  initialPatterns: readonly string[] = [],
+): GroupingRule {
+  return {
+    id: crypto.randomUUID(),
+    name: "",
+    color: "blue",
+    patterns: [...initialPatterns],
+    priority: rules.length,
+    enabled: true,
+    createdAt: Date.now(),
+  };
+}
