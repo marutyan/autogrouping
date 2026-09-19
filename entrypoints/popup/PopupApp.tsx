@@ -1,287 +1,120 @@
-import {
-  useEffect,
-  useMemo,
-  useState,
-  type ChangeEvent,
-  type DragEvent,
-  type KeyboardEvent,
-} from "react";
-import { findRuleConflicts } from "../../src/core/rule-conflicts";
-import { findMatchingRuleDetail } from "../../src/core/rule-matcher";
-import { validateSettings } from "../../src/core/rule-validation";
-import type { GroupColor, GroupingRule, TabStateRecord } from "../../src/core/types";
+import { useMemo, type ChangeEvent } from "react";
+import { describePattern, type SiteScope } from "../../src/core/pattern-input";
+import { cloneRule, moveRule, removeRule, upsertRule } from "../../src/core/rule-list";
+import type { GroupColor } from "../../src/core/types";
 import { GROUP_COLORS, GROUP_COLOR_HEX } from "../../src/ui/group-colors";
-import { loadSettings, saveSettings } from "../../src/ui/storage";
+import {
+  findConflictNamesByRule,
+  findDraftConflictNames,
+  quotedNames,
+} from "../../src/ui/rule-conflicts-summary";
+import { protectTab, reevaluateWindow, returnTab } from "../../src/ui/background-client";
+import { describeTabStatus } from "../../src/ui/tab-status";
+import { useColorMenu } from "./hooks/useColorMenu";
+import { useCurrentTab } from "./hooks/useCurrentTab";
+import { useRuleDraft } from "./hooks/useRuleDraft";
+import { useRuleReorder } from "./hooks/useRuleReorder";
+import { useSettings } from "./hooks/useSettings";
+import { useTransientMessage } from "./hooks/useTransientMessage";
 
-interface StatusResponse {
-  ok: boolean;
-  state?: TabStateRecord;
-}
-
-interface UndoAction {
-  label: string;
-  previousRules: GroupingRule[];
-}
-
-interface DropTarget {
-  ruleId: string;
-  position: "before" | "after";
-}
-
-type SiteScope = "site" | "path" | "page";
-
+// Chrome拡張機能 AutoGrouping のポップアップUIメインコンポーネント。
+// 各種カスタムhookから状態と操作を受け取り、ルール一覧・ドラフト編集・タブ状態のJSX表示を構築する。
 export function PopupApp() {
-  const [enabled, setEnabled] = useState(true);
-  const [rules, setRules] = useState<GroupingRule[]>([]);
-  const [tab, setTab] = useState<chrome.tabs.Tab>();
-  const [state, setState] = useState<TabStateRecord>();
-  const [draft, setDraft] = useState<GroupingRule>();
-  const [targetInput, setTargetInput] = useState("");
-  const [targetScope, setTargetScope] = useState<SiteScope>("site");
-  const [editingPattern, setEditingPattern] = useState<string>();
-  const [message, setMessage] = useState("");
-  const [undoAction, setUndoAction] = useState<UndoAction>();
-  const [colorMenuRuleId, setColorMenuRuleId] = useState<string>();
-  const [draggedRuleId, setDraggedRuleId] = useState<string>();
-  const [dropTarget, setDropTarget] = useState<DropTarget>();
+  const { tab, state, refreshTabState } = useCurrentTab();
+  const { message, undoAction, showMessage } = useTransientMessage();
+  const {
+    enabled,
+    rules,
+    toggleEnabled: toggleSettingsEnabled,
+    persistRules,
+  } = useSettings(tab?.windowId);
 
-  useEffect(() => {
-    void (async () => {
-      const settings = await loadSettings();
-      setEnabled(settings.enabled);
-      setRules(settings.rules);
-      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      setTab(activeTab);
-    })();
-  }, []);
+  const {
+    draft,
+    setDraft,
+    targetInput,
+    setTargetInput,
+    targetScope,
+    setTargetScope,
+    editingPattern,
+    resetTargetEditor,
+    resetDraft,
+    beginAddRule,
+    beginEditRule,
+    beginEditTarget,
+    startEditingTarget,
+    saveTarget,
+    addCurrentSite,
+    removeTarget,
+  } = useRuleDraft({
+    rules,
+    currentTabUrl: tab?.url,
+    onMessage: showMessage,
+  });
 
-  useEffect(() => {
-    const tabId = tab?.id;
-    if (tabId === undefined) return;
+  const { colorMenuRuleId, setColorMenuRuleId } = useColorMenu();
 
-    let cancelled = false;
-    const update = async () => {
-      const [nextState, currentTab] = await Promise.all([
-        fetchTabState(tabId),
-        chrome.tabs.get(tabId).catch(() => undefined),
-      ]);
-      if (cancelled) return;
-      setState(nextState);
-      if (currentTab) setTab(currentTab);
-    };
+  const {
+    draggedRuleId,
+    dropTarget,
+    handleDragStart,
+    handleDragOver,
+    handleDrop,
+    handleDragEnd,
+    handleReorderKeyDown,
+  } = useRuleReorder({
+    rules,
+    onReorder: reorderRule,
+  });
 
-    void update();
-    const intervalId = window.setInterval(() => void update(), 500);
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-    };
-  }, [tab?.id]);
-
-  useEffect(() => {
-    if (!message) return;
-    const delay = undoAction
-      ? 6000
-      : message === "Saved." || message === "Color updated."
-        ? 1800
-        : 4000;
-    const timeoutId = window.setTimeout(() => {
-      setMessage("");
-      setUndoAction(undefined);
-    }, delay);
-    return () => window.clearTimeout(timeoutId);
-  }, [message, undoAction]);
-
-  useEffect(() => {
-    if (!colorMenuRuleId) return;
-
-    const closeOnOutsidePointer = (event: PointerEvent) => {
-      const target = event.target;
-      if (target instanceof Element && target.closest(".color-cell")) return;
-      setColorMenuRuleId(undefined);
-    };
-    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape") setColorMenuRuleId(undefined);
-    };
-
-    document.addEventListener("pointerdown", closeOnOutsidePointer);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutsidePointer);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [colorMenuRuleId]);
-
-  const conflicts = useMemo(() => findRuleConflicts(rules), [rules]);
-  const conflictNamesByRule = useMemo(() => {
-    const names = new Map<string, Set<string>>();
-    const ruleById = new Map(rules.map((rule) => [rule.id, rule]));
-    for (const conflict of conflicts) {
-      const firstName = ruleById.get(conflict.firstRuleId)?.name;
-      const secondName = ruleById.get(conflict.secondRuleId)?.name;
-      if (firstName && secondName) {
-        addMapValue(names, conflict.firstRuleId, secondName);
-        addMapValue(names, conflict.secondRuleId, firstName);
-      }
-    }
-    return names;
-  }, [conflicts, rules]);
-
-  const draftConflictNames = useMemo(() => {
-    if (!draft) return [];
-    const candidateRules = normalizePriorities(
-      rules.some((rule) => rule.id === draft.id)
-        ? rules.map((rule) => (rule.id === draft.id ? draft : rule))
-        : [...rules, draft],
-    );
-    const names = new Set<string>();
-    const ruleById = new Map(candidateRules.map((rule) => [rule.id, rule]));
-    for (const conflict of findRuleConflicts(candidateRules)) {
-      if (conflict.firstRuleId === draft.id) {
-        const name = ruleById.get(conflict.secondRuleId)?.name;
-        if (name) names.add(name);
-      }
-      if (conflict.secondRuleId === draft.id) {
-        const name = ruleById.get(conflict.firstRuleId)?.name;
-        if (name) names.add(name);
-      }
-    }
-    return [...names];
-  }, [draft, rules]);
-
+  const conflictNamesByRule = useMemo(() => findConflictNamesByRule(rules), [rules]);
+  const draftConflictNames = useMemo(() => findDraftConflictNames(rules, draft), [draft, rules]);
   const tabStatus = useMemo(() => describeTabStatus(state, tab, rules), [state, tab, rules]);
 
   async function toggleEnabled() {
-    const settings = await loadSettings();
-    const next = !enabled;
-    await saveSettings({ ...settings, enabled: next });
-    setEnabled(next);
+    const next = await toggleSettingsEnabled();
     showMessage(next ? "Automatic grouping resumed." : "Automatic grouping paused.");
   }
 
   async function send(type: "return-tab" | "protect-tab" | "reevaluate-window") {
     if (!tab) return;
-    const response = await safeSendMessage({
-      type,
-      tabId: tab.id,
-      windowId: tab.windowId,
-    });
+    const response =
+      type === "return-tab" && tab.id !== undefined
+        ? await returnTab(tab.id)
+        : type === "protect-tab" && tab.id !== undefined
+          ? await protectTab(tab.id)
+          : type === "reevaluate-window" && tab.windowId !== undefined
+            ? await reevaluateWindow(tab.windowId)
+            : undefined;
     if (response === undefined) {
       showMessage("Background service is restarting. Reopen the popup and try again.");
       return;
     }
-    if (tab.id !== undefined) setState(await fetchTabState(tab.id));
-  }
-
-  function showMessage(nextMessage: string, nextUndo?: UndoAction) {
-    setMessage(nextMessage);
-    setUndoAction(nextUndo);
-  }
-
-  function resetTargetEditor() {
-    setTargetInput("");
-    setTargetScope("site");
-    setEditingPattern(undefined);
-  }
-
-  function beginAddRule() {
-    showMessage("");
-    resetTargetEditor();
-    setDraft({
-      id: crypto.randomUUID(),
-      name: "",
-      color: "blue",
-      patterns: [],
-      priority: rules.length,
-      enabled: true,
-      createdAt: Date.now(),
-    });
-  }
-
-  function beginEditRule(rule: GroupingRule) {
-    showMessage("");
-    resetTargetEditor();
-    setDraft({ ...rule, patterns: [...rule.patterns] });
-  }
-
-  function beginEditTarget(rule: GroupingRule, pattern: string) {
-    showMessage("");
-    setDraft({ ...rule, patterns: [...rule.patterns] });
-    startEditingTarget(pattern);
-  }
-
-  function startEditingTarget(pattern: string) {
-    if (!isSimplePattern(pattern)) {
-      setEditingPattern(undefined);
-      setTargetInput("");
-      setTargetScope("site");
-      showMessage("This custom wildcard can be edited under Advanced matching patterns.");
-      return;
-    }
-    const scope = inferScope(pattern);
-    setEditingPattern(pattern);
-    setTargetInput(patternToInput(pattern, scope));
-    setTargetScope(scope);
-    showMessage("");
-  }
-
-  function saveTarget(value = targetInput, scope = targetScope, replacedPattern = editingPattern) {
-    if (!draft) return;
-    const pattern = patternFromInput(value, scope);
-    if (!pattern) {
-      showMessage("Enter a valid URL, domain, or site keyword such as github.");
-      return;
-    }
-
-    const otherPatterns = replacedPattern
-      ? draft.patterns.filter((item) => item !== replacedPattern)
-      : draft.patterns;
-    if (otherPatterns.includes(pattern)) {
-      showMessage("That target is already included.");
-      return;
-    }
-
-    const nextPatterns = replacedPattern
-      ? draft.patterns.map((item) => (item === replacedPattern ? pattern : item))
-      : [...draft.patterns, pattern];
-    setDraft({ ...draft, patterns: nextPatterns });
-    resetTargetEditor();
-    showMessage("");
-  }
-
-  function addCurrentSite() {
-    if (!tab?.url) return;
-    saveTarget(tab.url, "site", undefined);
-  }
-
-  function removeTarget(pattern: string) {
-    if (!draft) return;
-    setDraft({ ...draft, patterns: draft.patterns.filter((item) => item !== pattern) });
-    if (editingPattern === pattern) resetTargetEditor();
+    await refreshTabState();
   }
 
   async function persistDraft() {
     if (!draft) return;
-    const nextRules = normalizePriorities(
-      rules.some((rule) => rule.id === draft.id)
-        ? rules.map((rule) => (rule.id === draft.id ? draft : rule))
-        : [...rules, draft],
-    );
-    if (!(await persistRules(nextRules))) return;
-
-    setDraft(undefined);
-    resetTargetEditor();
+    const nextRules = upsertRule(rules, draft);
+    const result = await persistRules(nextRules);
+    if (!result.ok) {
+      showMessage(result.error);
+      return;
+    }
+    resetDraft();
     showMessage("Saved.");
   }
 
   async function deleteDraft() {
     if (!draft) return;
     const previousRules = rules.map(cloneRule);
-    const nextRules = normalizePriorities(rules.filter((rule) => rule.id !== draft.id));
-    if (!(await persistRules(nextRules))) return;
-
-    setDraft(undefined);
-    resetTargetEditor();
+    const nextRules = removeRule(rules, draft.id);
+    const result = await persistRules(nextRules);
+    if (!result.ok) {
+      showMessage(result.error);
+      return;
+    }
+    resetDraft();
     showMessage("Group deleted.", {
       label: "Undo group deletion",
       previousRules,
@@ -290,7 +123,11 @@ export function PopupApp() {
 
   async function updateRuleColor(ruleId: string, color: GroupColor) {
     const nextRules = rules.map((rule) => (rule.id === ruleId ? { ...rule, color } : rule));
-    if (!(await persistRules(nextRules))) return;
+    const result = await persistRules(nextRules);
+    if (!result.ok) {
+      showMessage(result.error);
+      return;
+    }
     setColorMenuRuleId(undefined);
     showMessage("Color updated.");
   }
@@ -303,75 +140,23 @@ export function PopupApp() {
     const nextRules = moveRule(rules, sourceRuleId, targetRuleId, position);
     if (!nextRules) return;
     const previousRules = rules.map(cloneRule);
-    if (!(await persistRules(nextRules))) return;
+    const result = await persistRules(nextRules);
+    if (!result.ok) {
+      showMessage(result.error);
+      return;
+    }
     showMessage("Group moved.", { label: "Undo group move", previousRules });
-  }
-
-  async function moveRuleByKeyboard(ruleId: string, direction: -1 | 1) {
-    const sourceIndex = rules.findIndex((rule) => rule.id === ruleId);
-    const target = rules[sourceIndex + direction];
-    if (sourceIndex < 0 || !target) return;
-    await reorderRule(ruleId, target.id, direction < 0 ? "before" : "after");
   }
 
   async function undoLastChange() {
     if (!undoAction) return;
     const previousRules = undoAction.previousRules.map(cloneRule);
-    if (!(await persistRules(previousRules))) return;
+    const result = await persistRules(previousRules);
+    if (!result.ok) {
+      showMessage(result.error);
+      return;
+    }
     showMessage("Change undone.");
-  }
-
-  async function persistRules(nextRules: GroupingRule[]): Promise<boolean> {
-    const settings = await loadSettings();
-    const normalizedRules = normalizePriorities(nextRules);
-    const validation = validateSettings({ ...settings, rules: normalizedRules });
-    if (!validation.value || validation.errors.length > 0) {
-      showMessage(validation.errors.join(" ") || "Rule is invalid.");
-      return false;
-    }
-
-    await saveSettings(validation.value);
-    setRules(validation.value.rules);
-    if (tab?.windowId !== undefined) {
-      await safeSendMessage({ type: "reevaluate-window", windowId: tab.windowId });
-    }
-    return true;
-  }
-
-  function handleDragStart(event: DragEvent<HTMLButtonElement>, ruleId: string) {
-    setDraggedRuleId(ruleId);
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", ruleId);
-  }
-
-  function handleDragOver(event: DragEvent<HTMLDivElement>, ruleId: string) {
-    if (!draggedRuleId || draggedRuleId === ruleId) return;
-    event.preventDefault();
-    const rect = event.currentTarget.getBoundingClientRect();
-    const position = event.clientY < rect.top + rect.height / 2 ? "before" : "after";
-    setDropTarget({ ruleId, position });
-    event.dataTransfer.dropEffect = "move";
-  }
-
-  function handleDrop(event: DragEvent<HTMLDivElement>, targetRuleId: string) {
-    event.preventDefault();
-    if (draggedRuleId && draggedRuleId !== targetRuleId) {
-      const position = dropTarget?.ruleId === targetRuleId ? dropTarget.position : "before";
-      void reorderRule(draggedRuleId, targetRuleId, position);
-    }
-    setDraggedRuleId(undefined);
-    setDropTarget(undefined);
-  }
-
-  function handleDragEnd() {
-    setDraggedRuleId(undefined);
-    setDropTarget(undefined);
-  }
-
-  function handleReorderKeyDown(event: KeyboardEvent<HTMLButtonElement>, ruleId: string) {
-    if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
-    event.preventDefault();
-    void moveRuleByKeyboard(ruleId, event.key === "ArrowUp" ? -1 : 1);
   }
 
   return (
@@ -758,158 +543,4 @@ export function PopupApp() {
       </details>
     </main>
   );
-}
-
-async function safeSendMessage<T = unknown>(message: unknown): Promise<T | undefined> {
-  try {
-    return (await chrome.runtime.sendMessage(message)) as T;
-  } catch {
-    return undefined;
-  }
-}
-
-async function fetchTabState(tabId: number): Promise<TabStateRecord | undefined> {
-  const response = await safeSendMessage<StatusResponse>({ type: "get-status", tabId });
-  return response?.state;
-}
-
-function patternFromInput(value: string, scope: SiteScope): string | undefined {
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-
-  if (/^[a-z0-9-]+$/i.test(trimmed)) return `${trimmed.toLowerCase()}/*`;
-
-  try {
-    const url = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`);
-    if (!/^https?:$/.test(url.protocol) || !url.hostname) return undefined;
-    if (scope === "site") return `${url.hostname}/*`;
-    if (scope === "page") return `${url.hostname}${url.pathname}${url.search}`;
-    const path = url.pathname === "/" ? "/" : url.pathname.replace(/\/+$/, "");
-    return `${url.hostname}${path === "/" ? "/*" : `${path}*`}`;
-  } catch {
-    return undefined;
-  }
-}
-
-function isSimplePattern(pattern: string): boolean {
-  const normalized = pattern.replace(/^\*:\/\//, "").replace(/^https?:\/\//, "");
-  const hostname = normalized.split("/")[0] ?? "";
-  const path = normalized.slice(hostname.length);
-  return !hostname.includes("*") && (!path.includes("*") || path.endsWith("*"));
-}
-
-function inferScope(pattern: string): SiteScope {
-  const normalized = pattern.replace(/^\*:\/\//, "").replace(/^https?:\/\//, "");
-  if (normalized.endsWith("/*")) return "site";
-  if (normalized.endsWith("*")) return "path";
-  return "page";
-}
-
-function patternToInput(pattern: string, scope: SiteScope): string {
-  const normalized = pattern.replace(/^\*:\/\//, "").replace(/^https?:\/\//, "");
-  if (scope === "site") return normalized.replace(/\/\*$/, "");
-  if (scope === "path") return `https://${normalized.replace(/\*$/, "")}`;
-  return `https://${normalized}`;
-}
-
-function describePattern(pattern: string): { label: string; scope: string } {
-  const normalized = pattern.replace(/^\*:\/\//, "").replace(/^https?:\/\//, "");
-  const slashIndex = normalized.indexOf("/");
-  const hostname = slashIndex === -1 ? normalized : normalized.slice(0, slashIndex);
-  const path = slashIndex === -1 ? "" : normalized.slice(slashIndex);
-  if (/^[a-z0-9-]+$/i.test(hostname) && path === "/*") {
-    return { label: hostname, scope: "Site keyword" };
-  }
-  if (path === "/*") return { label: hostname, scope: "Entire site" };
-  if (!path) {
-    return { label: hostname, scope: normalized.includes("*") ? "Custom" : "Exact host" };
-  }
-  if (path.includes("*")) {
-    return { label: hostname, scope: `${path.replaceAll("*", "…")} path` };
-  }
-  return { label: hostname, scope: "Exact page" };
-}
-
-function describeTabStatus(
-  state: TabStateRecord | undefined,
-  tab: chrome.tabs.Tab | undefined,
-  rules: readonly GroupingRule[],
-): { title: string; detail: string | undefined } {
-  const matching = tab?.url ? findMatchingRuleDetail(tab.url, rules) : undefined;
-  const managedRule = state?.managedRuleId
-    ? rules.find((rule) => rule.id === state.managedRuleId)
-    : matching?.rule;
-
-  switch (state?.state) {
-    case "managed":
-      return {
-        title: managedRule ? `Managed by ${managedRule.name}` : "Managed by AutoGrouping",
-        detail: matching ? `Matched target: ${describePattern(matching.pattern).label}` : undefined,
-      };
-    case "protected-external":
-      return { title: "In external group", detail: "External group ownership is preserved." };
-    case "protected-user":
-      return { title: "Protected manually", detail: "Use Return to automation to resume." };
-    case "protected-split-view":
-      return {
-        title: "Protected by Split View",
-        detail: "Grouping resumes after Split View ends.",
-      };
-    case "ignored-pinned":
-      return { title: "Pinned and ignored", detail: "Pinned tabs remain in place." };
-    case "unmatched":
-      return { title: "No matching group", detail: hostnameDetail(tab?.url) };
-    default:
-      return {
-        title: "Checking…",
-        detail: matching ? `Potential match: ${matching.rule.name}` : hostnameDetail(tab?.url),
-      };
-  }
-}
-
-function hostnameDetail(url: string | undefined): string | undefined {
-  if (!url) return undefined;
-  try {
-    return `Hostname: ${new URL(url).hostname}`;
-  } catch {
-    return undefined;
-  }
-}
-
-function moveRule(
-  rules: readonly GroupingRule[],
-  sourceRuleId: string,
-  targetRuleId: string,
-  position: "before" | "after",
-): GroupingRule[] | undefined {
-  if (sourceRuleId === targetRuleId) return undefined;
-  const source = rules.find((rule) => rule.id === sourceRuleId);
-  if (!source) return undefined;
-
-  const remaining = rules.filter((rule) => rule.id !== sourceRuleId);
-  const targetIndex = remaining.findIndex((rule) => rule.id === targetRuleId);
-  if (targetIndex < 0) return undefined;
-
-  const insertionIndex = targetIndex + (position === "after" ? 1 : 0);
-  const next = [...remaining];
-  next.splice(insertionIndex, 0, source);
-  return normalizePriorities(next);
-}
-
-function normalizePriorities(rules: readonly GroupingRule[]): GroupingRule[] {
-  return rules.map((rule, index) => ({ ...rule, patterns: [...rule.patterns], priority: index }));
-}
-
-function cloneRule(rule: GroupingRule): GroupingRule {
-  return { ...rule, patterns: [...rule.patterns] };
-}
-
-function addMapValue(map: Map<string, Set<string>>, key: string, value: string): void {
-  const values = map.get(key) ?? new Set<string>();
-  values.add(value);
-  map.set(key, values);
-}
-
-function quotedNames(names: readonly string[]): string {
-  return names.map((name) => `“${name}”`).join(", ");
 }
