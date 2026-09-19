@@ -13,13 +13,15 @@ A Chrome extension for rule-based tab grouping that preserves Chrome Split View 
 
 ## Popup workflow
 
-The popup is the complete configuration surface:
+The popup is the complete configuration surface using a focused two-view layout (group list and group editor):
 
 - create, edit, pause, and delete groups
+- toggle pause per group directly from the list switch
+- quickly add the current site to an existing or new group from the footer menu
+- protect individual tabs, return to automation, or re-evaluate the window directly from the status card
 - enter full domains or site keywords such as `github`
 - reorder groups by dragging; the same order controls matching priority and tab-group position
-- change Chrome group colors inline
-- inspect overlapping rules and the current tab's match reason
+- inspect overlapping rules, tab match status, and active group pill
 - undo group deletion and reordering
 
 Advanced wildcard patterns remain available inside each group editor. JSON import/export and the separate options page are intentionally not included.

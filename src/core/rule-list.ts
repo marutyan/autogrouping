@@ -52,3 +52,19 @@ export function upsertRule(
 export function removeRule(rules: readonly GroupingRule[], ruleId: string): GroupingRule[] {
   return normalizePriorities(rules.filter((rule) => rule.id !== ruleId));
 }
+
+// 指定したルールのpatterns配列に新しいパターンを追加する。
+// 既に同パターンが含まれている場合や該当ルールが存在しない場合は同じ内容の配列を返す純関数。
+export function addPatternToRule(
+  rules: readonly GroupingRule[],
+  ruleId: string,
+  pattern: string,
+): GroupingRule[] {
+  const target = rules.find((rule) => rule.id === ruleId);
+  if (!target || target.patterns.includes(pattern)) {
+    return [...rules];
+  }
+  return rules.map((rule) =>
+    rule.id === ruleId ? { ...rule, patterns: [...rule.patterns, pattern] } : rule,
+  );
+}

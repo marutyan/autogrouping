@@ -7,7 +7,7 @@ const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 export const STORE_ASSETS = [
   ["artifacts/store-screenshots/01-main-popup.png", 1280, 800],
   ["artifacts/store-screenshots/02-group-editor.png", 1280, 800],
-  ["artifacts/store-screenshots/03-inline-color-picker.png", 1280, 800],
+  ["artifacts/store-screenshots/03-add-current-site.png", 1280, 800],
   ["artifacts/store-screenshots/04-drag-reordering.png", 1280, 800],
   ["artifacts/store-promo/small-promo-440x280.png", 440, 280],
 ];

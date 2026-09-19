@@ -47,11 +47,26 @@ export function useSettings(windowId?: number) {
     return { ok: true };
   }
 
+  // 指定したルールの有効/無効を切り替えて設定を永続化する。
+  // 切り替え後のenabled状態、またはエラー時はundefinedを返す。
+  async function toggleRuleEnabled(ruleId: string): Promise<boolean | undefined> {
+    const target = rules.find((rule) => rule.id === ruleId);
+    if (!target) return undefined;
+    const nextEnabled = !target.enabled;
+    const nextRules = rules.map((rule) =>
+      rule.id === ruleId ? { ...rule, enabled: nextEnabled } : rule,
+    );
+    const result = await persistRules(nextRules);
+    if (!result.ok) return undefined;
+    return nextEnabled;
+  }
+
   return {
     enabled,
     rules,
     setRules,
     toggleEnabled,
+    toggleRuleEnabled,
     persistRules,
   };
 }

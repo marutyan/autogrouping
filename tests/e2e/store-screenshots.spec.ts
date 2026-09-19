@@ -51,6 +51,7 @@ test("generates deterministic Chrome Web Store popup candidates", async ({
 
   await serviceWorker.evaluate(async (nextSettings) => {
     await chrome.storage.sync.set({ settings: nextSettings });
+    await chrome.tabs.create({ url: "https://github.com/features/actions", active: false });
   }, settings);
 
   await page.setViewportSize(storeScreenshotSize);
@@ -60,21 +61,27 @@ test("generates deterministic Chrome Web Store popup candidates", async ({
       html {
         min-height: 100%;
         background: #161719;
+        display: flex;
+        justify-content: center;
+        align-items: center;
       }
 
       body {
-        width: 720px;
-        min-width: 720px;
-        min-height: 800px;
+        width: 400px;
+        min-width: 400px;
+        max-width: 400px;
+        min-height: 600px;
+        max-height: 600px;
         margin: 0 auto;
         overflow: hidden;
-        border-right: 1px solid #3c4043;
-        border-left: 1px solid #3c4043;
+        border-radius: 12px;
+        border: 1px solid #3c4043;
+        box-shadow: 0 16px 32px rgba(0, 0, 0, 0.5);
       }
 
       main {
-        min-height: 800px;
-        max-height: 800px;
+        min-height: 600px;
+        max-height: 600px;
       }
     `,
   });
@@ -147,15 +154,12 @@ test("generates deterministic Chrome Web Store popup candidates", async ({
   await expect(editor.getByRole("heading", { name: "Edit group" })).toBeVisible();
   await captureStoreScreenshot(page, "02-group-editor.png");
 
-  await page.getByRole("button", { name: "Close group editor" }).click();
-  const colorButton = page.getByRole("button", {
-    name: "Change Research group color",
-    exact: true,
-  });
-  const researchRow = page.locator(".rule-row").filter({ has: colorButton });
-  await colorButton.click();
-  await expect(researchRow.getByRole("listbox", { name: "Group color" })).toBeVisible();
-  await captureStoreScreenshot(page, "03-inline-color-picker.png");
+  await page.getByRole("button", { name: "Back to groups" }).click();
+  const addSiteButton = page.getByRole("button", { name: "Add this site…" });
+  await expect(addSiteButton).toBeVisible();
+  await addSiteButton.click();
+  await expect(page.getByRole("menu", { name: "Add this site" })).toBeVisible();
+  await captureStoreScreenshot(page, "03-add-current-site.png");
 });
 
 async function captureStoreScreenshot(page: Page, filename: string): Promise<void> {

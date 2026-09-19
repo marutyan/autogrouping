@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  addPatternToRule,
   cloneRule,
   moveRule,
   normalizePriorities,
@@ -131,5 +132,27 @@ describe("removeRule", () => {
     const result = removeRule(rules, "nonexistent");
     expect(result.map((r) => r.id)).toEqual(["a"]);
     expect(result[0]?.priority).toBe(0);
+  });
+});
+
+describe("addPatternToRule", () => {
+  it("adds pattern to target rule when not already present", () => {
+    const rules = [createRule("a", "Rule A", 0), createRule("b", "Rule B", 1)];
+    const result = addPatternToRule(rules, "a", "example.com/*");
+    expect(result[0]?.patterns).toEqual(["a.com/*", "example.com/*"]);
+    expect(result[1]?.patterns).toEqual(["b.com/*"]);
+  });
+
+  it("returns same array contents if pattern is already included in target rule", () => {
+    const rules = [createRule("a", "Rule A", 0)];
+    const result = addPatternToRule(rules, "a", "a.com/*");
+    expect(result).toEqual(rules);
+    expect(result[0]?.patterns).toEqual(["a.com/*"]);
+  });
+
+  it("returns same array contents if rule id is not found", () => {
+    const rules = [createRule("a", "Rule A", 0)];
+    const result = addPatternToRule(rules, "nonexistent", "example.com/*");
+    expect(result).toEqual(rules);
   });
 });
