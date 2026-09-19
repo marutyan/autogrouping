@@ -1,6 +1,6 @@
 # Manual Chrome QA runbook
 
-Use this runbook before marking the initial AutoGrouping release ready. Record results directly in Issues #1, #2, and #3.
+Use this runbook before marking a release ready. Record results in the release pull request or the release checklist (`docs/STORE_RELEASE_CHECKLIST.md`); no per-scenario tracking issue is kept open.
 
 ## Preparation
 
@@ -14,7 +14,7 @@ Use this runbook before marking the initial AutoGrouping release ready. Record r
    git rev-parse --short HEAD
    ```
 
-   Record the printed commit in the relevant QA issue before testing.
+   Record the printed commit together with the results before testing.
 
 2. Open `chrome://extensions`.
 3. Enable Developer mode.
@@ -35,7 +35,7 @@ Create these groups in the popup, in this order:
 
 Keep one unmatched tab such as `example.com` open after the managed groups.
 
-## Chrome Stable and Beta regression — Issue #1
+## Chrome Stable and Beta regression
 
 Run this section once in current Chrome Stable and once in current Chrome Beta.
 
@@ -67,7 +67,7 @@ Run this section once in current Chrome Stable and once in current Chrome Beta.
 - [ ] **Re-evaluate window** in the status card updates grouping for open tabs.
 - [ ] A pinned tab remains ungrouped and in place.
 
-## Split View regression — Issue #2
+## Split View regression
 
 1. Open two tabs that normally match AutoGrouping rules.
 2. Put them into Chrome Split View.
@@ -82,7 +82,7 @@ Expected results:
 - [ ] After the settle delay, normal URL-rule evaluation resumes.
 - [ ] Managed groups return to popup order.
 
-## Claude or browser-agent regression — Issue #3
+## Claude or browser-agent regression
 
 1. Ask the browser agent to create a group named `Claude`.
 2. Ask it to open or move a matching GitHub URL into that group.
@@ -134,7 +134,7 @@ Evidence:
 
 ## Completion criteria
 
-- Close Issue #1 after Stable and Beta both pass.
-- Close Issue #2 after the supported Split View regression passes without loops, freezes, or premature mutations.
-- Close Issue #3 after a real Claude or browser-agent session passes the external-group scenarios.
-- Keep release-tracking Issue #7 open until the manual QA issues and remaining Chrome Web Store preparation are complete.
+- Stable and Beta both pass.
+- The supported Split View regression passes without loops, freezes, or premature mutations.
+- A real Claude or browser-agent session passes the external-group scenarios.
+- Automated coverage (Playwright E2E in CI) already verifies rule grouping, external-group preservation, resumption, and sticky manual protection; the sections above cover only what needs a real browser session.
